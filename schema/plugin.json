@@ -1,0 +1,56 @@
+{
+  "jupyter.lab.shortcuts": [],
+  "title": "custom-slideshow",
+  "description": "custom-slideshow settings.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false,
+  "jupyter.lab.menus": {
+    "main": [
+      {
+        "id": "slideshow-menu",
+        "label": "Slideshow",
+        "rank": 80,
+        "items": [
+          {
+            "command": "slideshow:view-first"
+          },
+          {
+            "command": "slideshow:view-current"
+          },
+          {
+            "command": "slideshow:exit"
+          }
+        ]
+      }
+    ]
+  },
+  "jupyter.lab.metadataforms": [
+    {
+      "id": "slideshow-metadata-form:plugin",
+      "label": "Slideshow Tools",
+      "metadataSchema": {
+        "type": "object",
+        "properties": {
+          "/slideshow/transition": {
+            "title": "Transition Style",
+            "type": "string",
+            "enum": [
+              "",
+              "slide",
+              "fade",
+              "zoom"
+            ],
+            "enumNames": [
+              "-",
+              "Slide",
+              "Fade",
+              "Zoom"
+            ],
+            "default": ""
+          }
+        }
+      }
+    }
+  ]
+}

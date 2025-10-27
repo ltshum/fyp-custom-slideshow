@@ -1,0 +1,5 @@
+{
+  "packageManager": "python",
+  "packageName": "custom_slideshow",
+  "uninstallInstructions": "Use your Python package manager (pip, conda, etc.) to uninstall the package custom_slideshow"
+}

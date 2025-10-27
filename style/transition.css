@@ -1,0 +1,170 @@
+@import url('base.css');
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0%);
+        opacity: 1;
+    }
+}
+.slide-in-left {
+    animation: slideInLeft 1s forwards;
+}
+
+@keyframes slideOutLeft {
+    from {
+        transform: translateX(0%);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+}
+.slide-out-left {
+    animation: slideOutLeft 1s forwards;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0%);
+        opacity: 1;
+    }
+}
+.slide-in-right {
+    animation: slideInRight 1s forwards;
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0%);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+.slide-out-right {
+    animation: slideOutRight 1s forwards;
+}
+
+@keyframes slideInTop {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0%);
+        opacity: 1;
+    }
+}
+.slide-in-top {
+    animation: slideInTop 1s forwards;
+}
+
+@keyframes slideOutTop {
+    from {
+        transform: translateY(0%);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+}
+.slide-out-top {
+    animation: slideOutTop 1s forwards;
+}
+
+@keyframes slideInBottom {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0%);
+        opacity: 1;
+    }
+}
+.slide-in-bottom {
+    animation: slideInBottom 1s forwards;
+}
+
+@keyframes slideOutBottom {
+    from {
+        transform: translateY(0%);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+}
+.slide-out-bottom {
+    animation: slideOutBottom 1s forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.fade-in {
+    animation: fadeIn 1s forwards;
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+.fade-out {
+    animation: fadeOut 1s forwards;
+}
+
+
+@keyframes zoomIn {
+    from {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+.zoom-in {
+    opacity: 1;
+    transition: opacity 1s;
+    animation: zoomIn 1s forwards;
+}
+
+@keyframes zoomOut {
+    from {
+        transform: scale(1);
+        opacity: 1;
+    }
+    to {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+}
+.zoom-out {
+    opacity: 1;
+    transition: opacity 1s;
+    animation: zoomOut 1s forwards;
+}
