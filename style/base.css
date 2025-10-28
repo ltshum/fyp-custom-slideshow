@@ -8,15 +8,31 @@
     opacity: 0;
 }
 
-.slide-container {
-    width: 100% !important;
-    height: 100% !important;
-    inset: 0 !important;
-    transform: none !important;
+.slide {
+    position: absolute;
+    width: 100%;
+    height: 100%;
 }
 
-.slide-scroll {
-    overflow: hidden;
+.slide.focused {
+    z-index: 1;
+}
+
+.slide .jp-Toolbar, /* tool bar at top right of cell */
+.slide .jp-Collapser, /* blue stripe at left of cell */
+.slide .jp-InputArea-prompt, /* status box of code cells */
+.slide .jp-OutputArea-prompt /* blank space of code cell output */ {
+    display: none;
+}
+
+.slide .jp-RenderedMarkdown /* border of selected markdown cells */ {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.slide-container {
+    overflow: scroll;
+    scrollbar-width: none;
 }
 
 .slide-nav-right {
@@ -27,14 +43,4 @@
     bottom: 50px;
     right: 50px;
     z-index: 1000;
-}
-
-.slide, .subslide {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-}
-
-.slide *, .subslide *, .fragment * {
-    font-size:50px;
 }

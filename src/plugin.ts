@@ -27,7 +27,7 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
   let cellNum = 0;
   let activeIndex = 0;
 
-  const initSlide = (mode: "first" | "current" = "first") => {
+  const initSlideshow = (mode: "first" | "current" = "first") => {
     slideToggle = true;
     layout = [];
     slides = [];
@@ -46,10 +46,6 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
           cells.forEach((cell, index) => {
             const slideType = cell.model.metadata.slideshow?.slide_type;
             const transition = cell.model.metadata.slideshow?.transition;
-            // cell.node.classList.add(SlideType.HIDDEN);
-            // if (slideType) {
-            //   cell.node.classList.add(slideType);
-            // }
 
             if (slideType === SlideType.SLIDE) {
               cellIndicies[index] = true;
@@ -58,7 +54,8 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
                 cell: cell, 
                 type: slideType, 
                 transition: transition,
-                fragments: []
+                fragments: [],
+                children: []
               });
             }
             else if (slideType === SlideType.SUBSLIDE) {
@@ -69,7 +66,8 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
                   cell: cell, 
                   type: SlideType.SLIDE, 
                   transition: transition,
-                  fragments: []
+                  fragments: [],
+                  children: []
                 });
               }
               else {
@@ -78,7 +76,8 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
                   cell: cell, 
                   type: slideType,
                   transition: transition, 
-                  fragments: []
+                  fragments: [],
+                  children: []
                 });
               }
             }
@@ -90,7 +89,8 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
                   cell: cell, 
                   type: SlideType.SLIDE,
                   transition: transition,
-                  fragments: []
+                  fragments: [],
+                  children: []
                 });
               }
               else {
@@ -99,8 +99,36 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
                   index: index,
                   cell: cell, 
                   type: slideType,
-                  transition: transition
+                  transition: transition,
+                  children: []
                 });
+              }
+            }
+            else if (!slideType) {
+              if (layout.length === 0) {
+                layout.push({
+                  index: index,
+                  cell: cell, 
+                  type: SlideType.SLIDE,
+                  transition: transition,
+                  fragments: [],
+                  children: []
+                });
+              }
+              else {
+                let lastSlide = layout[layout.length - 1];
+                if (lastSlide.fragments.length > 0) {
+                  lastSlide.fragments[lastSlide.fragments.length-1].children.push({ 
+                    index: index, 
+                    cell: cell 
+                  });
+                }
+                else {
+                  lastSlide.children.push({ 
+                    index: index, 
+                    cell: cell 
+                  });
+                }
               }
             }
           });
@@ -116,30 +144,50 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
           // panel.node.appendChild(navRight);
         });
 
-        if (mode === "first") {
+        if (mode === "first") { // start from first cell
           pageIndex = 0;
           prevIndex = pageIndex;
           activeIndex = layout[pageIndex].index;
         }
-        else {
+        else { // start from current cell
           activeIndex = panel.content.activeCellIndex;
           pageIndex = layout.findIndex(
             (item) => item.index === activeIndex
             || item.fragments?.some((fragment: any) => fragment.index === activeIndex)
           );
-          if (pageIndex === -1) {
-            pageIndex = 0;
-            activeIndex = layout[pageIndex].index;
+          if (pageIndex === -1) { // activeIndex not in layout
+            // find slide before activeIndex
+            pageIndex = layout.findIndex(
+              (item) => item.index > activeIndex
+              || item.fragments?.some((fragment: any) => fragment.index > activeIndex)
+            );
+            if (pageIndex > 0 && layout[pageIndex].index > activeIndex) {
+              pageIndex--;
+            }
+            if (pageIndex < 0) {
+              pageIndex = 0;
+            }
+            // find if activeIndex is child of a fragment
+            let activeFrag = layout[pageIndex].fragments?.find((fragment: any) => {
+              return fragment.children.some((child: any) => child.index === activeIndex);
+            });
+            if (activeFrag) {
+              activeIndex = activeFrag.index;
+            }
+            else {
+              activeIndex = layout[pageIndex].index;
+            }
             panel.content.activeCellIndex = activeIndex;
           }
           prevIndex = pageIndex;
+          // activate all fragments before activeIndex
           layout[pageIndex].fragments?.filter((fragment: any) => fragment.index <= activeIndex)
           .forEach((fragment: any) => {
             updateStyle(fragment, true, true, false);
           });
         }
-        initLayout(pageIndex);
         initSlides(panel);
+        initLayout(pageIndex);
 
         console.log(`Active Index: ${activeIndex}`);
         app.commands.commandExecuted.connect(navListener);
@@ -152,14 +200,14 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
 
   const exitEvent = () => {
     if (!document.fullscreenElement) {
-      exitSlide();
+      exitSlideshow();
     }
   }
 
+  // go to next cell when shift+enter
   const navListener = (sender: any, command: any) => {
     console.log(sender, command);
     if (command.id === "notebook:run-cell-and-select-next") {
-      console.log("Run cell command detected");
       let prevActive = activeIndex;
       do {
         activeIndex++;
@@ -182,22 +230,43 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
 
       if (activeCell.index !== activeIndex) {
         const fragment = activeCell.fragments.find((item: any) => item.index === activeIndex);
-        updateStyle(fragment, true, true, true, fragment.transition);
+        updateStyle(fragment, true, true, true, fragment.transition, fragment.cell.model.metadata.slideshow?.slide_dir);
       }
       updateLayout();
     }
   }
 
+  // init DOM elements
+  /* 
+  <(sub)slide>
+    slides
+    children
+    fragments
+    more children
+  </(sub)slide>
+  */
   const initSlides = (panel: NotebookPanel) => {
     let prev_slide: any = null;
     for (let i = 0; i < layout.length; i++) {
       slides.push(document.createElement("div"));
     }
     layout.forEach((slide, index) => {
-      slides[index].className = slide.type;
+      slides[index].classList.add(SlideType.SLIDE);
+
+      slide.cell.node.classList.add(`cell${slide.index}`);
       slides[index].appendChild(slide.cell.node);
+
+      slide.children?.forEach((child: any) => {
+        child.cell.node.classList.add(`cell${child.index}`);
+        slides[index].appendChild(child.cell.node);
+      });
       slide.fragments?.forEach((fragment: any) => {
+        fragment.cell.node.classList.add(`cell${fragment.index}`);
         slides[index].appendChild(fragment.cell.node);
+        fragment.children?.forEach((child: any) => {
+          child.cell.node.classList.add(`cell${child.index}`);
+          slides[index].appendChild(child.cell.node);
+        });
       });
       if (!prev_slide) {
         panel.content.node.insertBefore(slides[index], panel.content.node.firstChild);
@@ -207,14 +276,60 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
         panel.content.node.insertBefore(slides[index], prev_slide.nextSibling);
       }
     });
+
+    layout.forEach((slide) => {
+      customStyle(slide);
+    });
   };
+
+  // cell styles
+  const customStyle = (item: any, add: boolean = true) => {
+    // select both rendered and raw cells
+    document.querySelectorAll(`
+      .cell${item.index} .cm-scroller,
+      .cell${item.index} .jp-RenderedMarkdown,
+      .cell${item.index} .jp-RenderedText *
+    `).forEach((child) => {
+      if (add){
+        console.log("Adding font size");
+        console.log(window.getComputedStyle(child).fontSize);
+        // TODO: put in metadata for cell size, position, etc.
+        // placeholder style for not having to squeeze eyes
+        child.setAttribute("style", `font-size: 200%;`);
+      }
+      else {
+        child.removeAttribute("style");
+      }
+    });
+    if (!add) {
+      item.cell.node.classList.remove(`cell${item.index}`);
+    }
+    item.children?.forEach((child: any) => {
+      customStyle(child, add);
+    });
+    item.fragments?.forEach((fragment: any) => {
+      customStyle(fragment, add);
+    });
+  }
 
   const slideNav = (event: KeyboardEvent) => {
     const navKeyList = [" ", "ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Escape"];
+    /* 
+    space: every active cell
+    left/right: prev/next slide
+    up/down: prev/next subslide
+    esc: exit
+    */
     if (!navKeyList.includes(event.key)) {
       return;
     }
+    // editing cells
+    if (document.querySelectorAll(".slide-container.jp-mod-editMode").length > 0) {
+      return;
+    }
     prevIndex = pageIndex;
+
+    // navigate fragments first
     const fragments = layout[pageIndex].fragments;
     const hiddenFragments = fragments.filter((item: any) => item.cell.node.classList.contains(SlideType.HIDDEN));
     const visibleFragments = fragments.filter((item: any) => item.cell.node.classList.contains(SlideType.VISIBLE));
@@ -223,14 +338,28 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
       || event.key === "ArrowDown")
       && hiddenFragments.length > 0
     ) {
-      updateStyle(hiddenFragments[0], true, true, true, hiddenFragments[0].transition);
+      updateStyle(
+        hiddenFragments[0], 
+        true, 
+        true, 
+        true, 
+        hiddenFragments[0].transition,
+        hiddenFragments[0].cell.model.metadata.slideshow?.slide_dir
+      );
       return;
     }
     if ((event.key === "ArrowUp"
       || event.key === "ArrowLeft")
       && visibleFragments.length > 0
     ) {
-      updateStyle(visibleFragments[visibleFragments.length-1], false, true, false, visibleFragments[0].transition);
+      updateStyle(
+        visibleFragments[visibleFragments.length-1], 
+        false, 
+        true, 
+        false, 
+        visibleFragments[visibleFragments.length-1].transition,
+        visibleFragments[visibleFragments.length-1].cell.model.metadata.slideshow?.slide_dir
+      );
       return;
     }
 
@@ -289,7 +418,7 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
       }
     }
     else if (event.key === "Escape") {
-      exitSlide();
+      exitSlideshow();
       return;
     }
     console.log("Indices:");
@@ -299,32 +428,26 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
     console.log(pageIndex);
   };
 
-  const exitSlide = async () => {
+  const exitSlideshow = async () => {
     slideToggle = false;
 
     if (tracker.currentWidget) {
       const panel: NotebookPanel = tracker.currentWidget;
-      try {
-        slides.forEach((slide) => {
-          panel.content.node.removeChild(slide);
-        });
-      }
-      catch (error) {
-        console.error("Error removing slides:");
-        console.error(error);
-      }
       clearAll(panel);
+      slides.forEach((slide) => {
+        panel.content.node.removeChild(slide);
+      });
       app.commands.commandExecuted.disconnect(navListener);
       document.removeEventListener("keydown", slideNav);
       document.removeEventListener('fullscreenchange', exitEvent);
     }
   }
 
+  // clean up notebook layout for slideshow
   const miscStyles = (panel: NotebookPanel, start: boolean = true) => {
     if (start) {
       panel.content.addClass("slide-container");
       panel.toolbar.addClass(SlideType.HIDDEN);
-      document.querySelector(".jp-WindowedPanel-outer")?.classList.add("slide-scroll");
       for (let i = 0; i < panel.content.node.children.length; i++) {
         panel.content.node.children.item(i)?.classList.add(SlideType.HIDDEN);
       };
@@ -332,15 +455,10 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
       for (let i = 0; i < footers.length; i++) {
         footers.item(i)?.classList.add(SlideType.HIDDEN);
       }
-/*       const cellToolbars = document.getElementsByClassName("jp-cell-toolbar");
-      for (let i = 0; i < cellToolbars.length; i++) {
-        cellToolbars.item(i)?.classList.add(SlideType.HIDDEN);
-      } */
     }
     else {
       panel.content.removeClass("slide-container");
       panel.toolbar.removeClass(SlideType.HIDDEN);
-      document.querySelector(".jp-WindowedPanel-outer")?.classList.remove("slide-scroll");
       for (let i = 0; i < panel.content.node.children.length; i++) {
         panel.content.node.children.item(i)?.classList.remove(SlideType.HIDDEN);
       };
@@ -348,10 +466,6 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
       for (let i = 0; i < footers.length; i++) {
         footers.item(i)?.classList.remove(SlideType.HIDDEN);
       }
-/*       const cellToolbars = document.getElementsByClassName("jp-cell-toolbar");
-      for (let i = 0; i < cellToolbars.length; i++) {
-        cellToolbars.item(i)?.classList.remove(SlideType.HIDDEN);
-      } */
     }
   }
 
@@ -368,153 +482,247 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
 
   const initLayout = (index: number = 0) => {
     for (let i = 0; i < layout.length; i++) {
+      clearStyles(slides[i], false);
+      layout[i].fragments?.forEach((fragment: any) => {
+        updateStyle(fragment, false, true);
+      });
       updateStyle(layout[i], i === index);
     }
+    slides[index].classList.add("focused");
   };
 
   const updateLayout = (forward: boolean = true) => {
     if (pageIndex !== prevIndex) {
+      clearStyles(slides[prevIndex], false);
+      clearStyles(slides[pageIndex], false);
+      slides[prevIndex].classList.remove("focused");
+      slides[pageIndex].classList.add("focused");
       if (forward) {
-        updateStyle(layout[prevIndex], false, false, forward, layout[pageIndex].transition, layout[pageIndex].type);
-        updateStyle(layout[pageIndex], true, false, forward, layout[pageIndex].transition, layout[pageIndex].type);
+        updateStyle(
+          layout[prevIndex],
+          false,
+          false,
+          forward,
+          layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
+          layout[pageIndex].type
+        );
+        updateStyle(
+          layout[pageIndex],
+          true,
+          false,
+          forward,
+          layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
+          layout[pageIndex].type
+        );
       }
       else {
-        updateStyle(layout[prevIndex], false, false, forward, layout[pageIndex].transition, layout[prevIndex].type);
-        updateStyle(layout[pageIndex], true, false, forward, layout[pageIndex].transition, layout[prevIndex].type);
+        updateStyle(
+          layout[prevIndex],
+          false,
+          false,
+          forward,
+          layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
+          layout[prevIndex].type
+        );
+        updateStyle(
+          layout[pageIndex],
+          true,
+          false,
+          forward,
+          layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
+          layout[prevIndex].type
+        );
       }
     }
   };
 
+  const slideTrans = (dir: "in" | "out", forward: boolean = true, axis: "horizontal" | "vertical" = "horizontal") => {
+    return forward
+    ? `${Transition.SLIDE}-${dir}-${axis === "vertical" ? "up" : "left"}`
+    : `${Transition.SLIDE}-${dir}-${axis === "vertical" ? "down" : "right"}`;
+  };
+
   const updateStyle = (
     item: any, 
-    add: boolean = true, 
-    fragment: boolean = false, 
-    forward: boolean = true,
+    add: boolean = true, // slide is visible
+    fragment: boolean = false, // to update a fragment separately
+    forward: boolean = true, // nav direction is forward (" ", "ArrowRight", "ArrowDown")
     transition: string = "",
-    slideType: string = ""
+    slideDir: undefined | "horizontal" | "vertical" = undefined,
+    slideType: string = "",
+    visible: boolean = true, // fragment is visible
+    active: boolean = true  // cell has slide type and thus can be active
   ) => {
-    console.log("clear");
-    clearStyles(item.cell, false);
+    clearStyles(item.cell.node, false);
     if (add) {
-      if (transition) {
-        if (transition === Transition.SLIDE) {
-          if (forward) {
-            /* 
-            forward, !subslide = left
-            forward, subslide = up
-            !forward, !subslide = right
-            !forward, subslide = down
-            */
-            item.cell.node.classList.add(`${transition}-in-${slideType === SlideType.SUBSLIDE ? "up" : "left"}`);
-          }
-          else {
-            item.cell.node.classList.add(`${transition}-in-${slideType === SlideType.SUBSLIDE ? "down" : "right"}`);
-          }
-        }
-        else {
-          item.cell.node.classList.add(`${transition}-in`);
-        }
-      }
       if (fragment) {
         item.cell.node.classList.add(SlideType.VISIBLE);
+        if (transition) {
+          if (transition === Transition.SLIDE) {
+            item.cell.node.classList.add(slideTrans(
+              "in", 
+              forward, 
+              slideDir || (slideType === SlideType.SUBSLIDE ? "vertical" : "horizontal")
+            ));
+          }
+          else {
+            item.cell.node.classList.add(`${transition}-in`);
+          }
+        }
+        item.children?.forEach((child: any) => {
+          updateStyle(
+            child, 
+            add, 
+            fragment, 
+            forward,
+            transition,
+            slideDir,
+            slideType,
+            visible,
+            false
+          )
+        });
       }
-      if (tracker.currentWidget) {
-        console.log(`Current item: ${item.index}`);
+      else {
+        if (transition) {
+          let page = layout.findIndex((slide) => slide.index === item.index);
+          if (page !== -1) {
+            if (transition === Transition.SLIDE) {
+              slides[page].classList.add(slideTrans(
+                "in", 
+                forward, 
+                slideDir || (slideType === SlideType.SUBSLIDE ? "vertical" : "horizontal")
+              ));
+            }
+            else {
+              slides[page].classList.add(`${transition}-in`);
+            }
+            
+          }
+        }
+      }
+      if (active && tracker.currentWidget) {
         activeIndex = item.index;
-        console.log(`Update active: ${activeIndex}`);
         const panel: NotebookPanel = tracker.currentWidget;
         panel.content.activeCellIndex = activeIndex;
       }
     }
     else {
-      // fragments don't have exit animation, you can only go back to prev slide when there's one main slide on screen
-      if (!(item.type === SlideType.FRAGMENT) && transition) {
-        if (transition === Transition.SLIDE) {
-          if (forward) {
-            /* 
-            forward, !subslide = left
-            forward, subslide = up
-            !forward, !subslide = right
-            !forward, subslide = down
-            */
-            item.cell.node.classList.add(`${transition}-out-${slideType === SlideType.SUBSLIDE ? "up" : "left"}`);
+      if (fragment) {
+        if (visible && transition) {
+          if (transition === Transition.SLIDE) {
+            item.cell.node.classList.add(slideTrans(
+              "out", 
+              forward, 
+              slideDir || (slideType === SlideType.SUBSLIDE ? "vertical" : "horizontal")
+            ));
           }
           else {
-            item.cell.node.classList.add(`${transition}-out-${slideType === SlideType.SUBSLIDE ? "down" : "right"}`);
+            item.cell.node.classList.add(`${transition}-out`);
           }
         }
-        else {
-          item.cell.node.classList.add(`${transition}-out`);
-        }
-      }
-      item.cell.node.classList.add(SlideType.HIDDEN);
-      if (fragment) {
         item.cell.node.classList.remove(SlideType.VISIBLE);
+        item.cell.node.classList.add(SlideType.HIDDEN);
+        item.children?.forEach((child: any) => {
+          updateStyle(
+            child, 
+            add, 
+            fragment, 
+            forward,
+            transition,
+            slideDir,
+            slideType,
+            visible,
+            false
+          )
+        });
       }
-      if (!forward) {
+      else {
+        let page = layout.findIndex((slide) => slide.index === item.index);
+        if (transition) {
+          if (transition === Transition.SLIDE) {
+            slides[page]?.classList.add(slideTrans(
+              "out", 
+              forward, 
+              slideDir || (slideType === SlideType.SUBSLIDE ? "vertical" : "horizontal")
+            ));
+          }
+          else {
+            slides[page]?.classList.add(`${transition}-out`);
+          }
+        }
+        slides[page]?.classList.add(SlideType.HIDDEN);
+      }
+      if (!forward && active) {
         do {
           activeIndex--;
-          console.log(`Decrement active index: ${activeIndex}`);
         } while (activeIndex > 0 && !cellIndicies[activeIndex]);
         if (tracker.currentWidget) {
           if (!cellIndicies[activeIndex]) {
             activeIndex = layout[0].index;
           }
-          console.log(`Current item: ${item.index}`);
-          console.log(`Update active: ${activeIndex}`);
           const panel: NotebookPanel = tracker.currentWidget;
           panel.content.activeCellIndex = activeIndex;
         }
       }
     }
-    item.fragments?.forEach((fragment: any) => {
-      console.log(`Update fragment: ${fragment.index}`);
-      updateStyle(
-        fragment, 
-        add ? fragment.cell.node.classList.contains(SlideType.VISIBLE) : false, 
-        false, 
-        forward,
-        transition,
-        slideType
-      );
-    });
   };
 
-  const clearStyles = (cell: any, slideType: boolean = true) => {
+  const clearStyles = (node: any, slideType: boolean = true) => {
     if (slideType) {
-      cell.node.classList.remove(...Object.values(SlideType));
+      node.classList.remove(...Object.values(SlideType));
     }
-    cell.node.classList.remove(SlideType.HIDDEN);
+    node.classList.remove(SlideType.HIDDEN);
     ["in", "out"].forEach((dir) => {
-      cell.node.classList.remove(...Object.values(Transition).map((name) => `${name}-${dir}`));
+      node.classList.remove(...Object.values(Transition).map((name) => `${name}-${dir}`));
       ["left", "right", "up", "down"].forEach((side) => {
-        cell.node.classList.remove(`${Transition.SLIDE}-${dir}-${side}`);
+        node.classList.remove(`${Transition.SLIDE}-${dir}-${side}`);
       });
     });
   }
 
   const clearAll = async (panel: NotebookPanel) => {
     miscStyles(panel, false);
+    layout.forEach((slide) => {
+      customStyle(slide, false);
+    });
     await getCells(panel).then((cells) => {
       cells.forEach((cell) => {
-        clearStyles(cell);
+        clearStyles(cell.node);
       });
     });
   };
 
-  commands.addCommand("slideshow:view-first", {
+  // main menu commands
+  commands.addCommand("slideshow:start-first", {
     label: "Start from first cell",
     isEnabled: () => !slideToggle,
     execute: async () => {
-      initSlide();
+      try {
+        initSlideshow();
+      }
+      catch (e) {
+        console.error("Error starting slideshow:");
+        console.error(e);
+      }
     }
   });
 
-  commands.addCommand("slideshow:view-current", {
+  commands.addCommand("slideshow:start-current", {
     label: "Start from current cell",
     isEnabled: () => !slideToggle,
     execute: () => {
-      initSlide("current");
+      try {
+        initSlideshow("current");
+      }
+      catch (e) {
+        console.error("Error starting slideshow:");
+        console.error(e);
+      }
     }
   });
 
@@ -522,11 +730,15 @@ const plugin = (app: JupyterFrontEnd, tracker: INotebookTracker, setting: ISetti
     label: "Exit slideshow",
     isEnabled: () => slideToggle,
     execute: () => {
-      exitSlide();
+      try {
+        exitSlideshow();
+      }
+      catch (e) {
+        console.error("Error exiting slideshow:");
+        console.error(e);
+      }
     }
   });
-
-
 }
 
 export default plugin;
