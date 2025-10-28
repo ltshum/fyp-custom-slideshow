@@ -5,42 +5,42 @@
 */
 
 .hidden {
-    opacity: 0;
+  opacity: 0;
 }
 
 .slide {
-    position: absolute;
-    width: 100%;
-    height: 100%;
+  position: absolute;
+  width: 100%;
+  height: 100%;
 }
 
 .slide.focused {
-    z-index: 1;
+  z-index: 1;
 }
 
 .slide .jp-Toolbar, /* tool bar at top right of cell */
 .slide .jp-Collapser, /* blue stripe at left of cell */
 .slide .jp-InputArea-prompt, /* status box of code cells */
 .slide .jp-OutputArea-prompt /* blank space of code cell output */ {
-    display: none;
+  display: none;
 }
 
 .slide .jp-RenderedMarkdown /* border of selected markdown cells */ {
-    border-color: transparent !important;
-    box-shadow: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .slide-container {
-    overflow: scroll;
-    scrollbar-width: none;
+  overflow: scroll;
+  scrollbar-width: none;
 }
 
 .slide-nav-right {
-    background-color: red;
-    padding: 20px;
-    opacity: 50%;
-    position: absolute;
-    bottom: 50px;
-    right: 50px;
-    z-index: 1000;
+  background-color: red;
+  padding: 20px;
+  opacity: 50%;
+  position: absolute;
+  bottom: 50px;
+  right: 50px;
+  z-index: 1000;
 }

@@ -15,7 +15,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
   autoStart: true,
   requires: [INotebookTracker],
   optional: [ISettingRegistry],
-  activate: (app: JupyterFrontEnd, nbTracker: INotebookTracker, settingRegistry: ISettingRegistry | null) => {
+  activate: (
+    app: JupyterFrontEnd,
+    nbTracker: INotebookTracker,
+    settingRegistry: ISettingRegistry | null
+  ) => {
     console.log('JupyterLab extension custom-slideshow is activated!');
     pluginMain(app, nbTracker, settingRegistry);
     if (settingRegistry) {
@@ -25,7 +29,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
           console.log('custom-slideshow settings loaded:', settings.composite);
         })
         .catch(reason => {
-          console.error('Failed to load settings for custom-slideshow.', reason);
+          console.error(
+            'Failed to load settings for custom-slideshow.',
+            reason
+          );
         });
     }
   }

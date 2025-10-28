@@ -35,18 +35,8 @@
           "/slideshow/transition": {
             "title": "Transition Type",
             "type": "string",
-            "enum": [
-              "",
-              "slide",
-              "fade",
-              "zoom"
-            ],
-            "enumNames": [
-              "-",
-              "Slide",
-              "Fade",
-              "Zoom"
-            ],
+            "enum": ["", "slide", "fade", "zoom"],
+            "enumNames": ["-", "Slide", "Fade", "Zoom"],
             "default": ""
           }
         },
@@ -64,14 +54,8 @@
                 "/slideshow/slide_dir": {
                   "title": "Slide Direction",
                   "type": "string",
-                  "enum": [
-                    "horizontal", 
-                    "vertical"
-                  ],
-                  "enumNames": [
-                    "Horizontal", 
-                    "Vertical"
-                  ]
+                  "enum": ["horizontal", "vertical"],
+                  "enumNames": ["Horizontal", "Vertical"]
                 }
               }
             }
