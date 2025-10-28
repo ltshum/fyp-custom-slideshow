@@ -88,7 +88,7 @@ const plugin = (
                   children: []
                 });
               } else {
-                let lastSlide = layout[layout.length - 1];
+                const lastSlide = layout[layout.length - 1];
                 lastSlide.fragments.push({
                   index: index,
                   cell: cell,
@@ -108,7 +108,7 @@ const plugin = (
                   children: []
                 });
               } else {
-                let lastSlide = layout[layout.length - 1];
+                const lastSlide = layout[layout.length - 1];
                 if (lastSlide.fragments.length > 0) {
                   lastSlide.fragments[
                     lastSlide.fragments.length - 1
@@ -169,7 +169,7 @@ const plugin = (
               pageIndex = 0;
             }
             // find if activeIndex is child of a fragment
-            let activeFrag = layout[pageIndex].fragments?.find(
+            const activeFrag = layout[pageIndex].fragments?.find(
               (fragment: any) => {
                 return fragment.children.some(
                   (child: any) => child.index === activeIndex
@@ -213,7 +213,7 @@ const plugin = (
   const navListener = (sender: any, command: any) => {
     console.log(sender, command);
     if (command.id === 'notebook:run-cell-and-select-next') {
-      let prevActive = activeIndex;
+      const prevActive = activeIndex;
       do {
         activeIndex++;
       } while (!cellIndicies[activeIndex] && activeIndex < cellNum - 1);
@@ -323,7 +323,7 @@ const plugin = (
           console.log(window.getComputedStyle(child).fontSize);
           // TODO: put in metadata for cell size, position, etc.
           // placeholder style for not having to squeeze eyes
-          child.setAttribute('style', `font-size: 200%;`);
+          child.setAttribute('style', 'font-size: 200%;');
         } else {
           child.removeAttribute('style');
         }
@@ -642,7 +642,7 @@ const plugin = (
         });
       } else {
         if (transition) {
-          let page = layout.findIndex(slide => slide.index === item.index);
+          const page = layout.findIndex(slide => slide.index === item.index);
           if (page !== -1) {
             if (transition === Transition.SLIDE) {
               slides[page].classList.add(
@@ -698,7 +698,7 @@ const plugin = (
           );
         });
       } else {
-        let page = layout.findIndex(slide => slide.index === item.index);
+        const page = layout.findIndex(slide => slide.index === item.index);
         if (transition) {
           if (transition === Transition.SLIDE) {
             slides[page]?.classList.add(
