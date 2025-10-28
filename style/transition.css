@@ -7,6 +7,7 @@
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0%);
     opacity: 1;
@@ -17,12 +18,12 @@
   animation: slide-in-left 1s forwards;
 }
 
-
 @keyframes slide-out-left {
   from {
     transform: translateX(0%);
     opacity: 1;
   }
+
   to {
     transform: translateX(-100%);
     opacity: 0;
@@ -33,12 +34,12 @@
   animation: slide-out-left 1s forwards;
 }
 
-
 @keyframes slide-in-right {
   from {
     transform: translateX(-100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0%);
     opacity: 1;
@@ -49,12 +50,12 @@
   animation: slide-in-right 1s forwards;
 }
 
-
 @keyframes slide-out-right {
   from {
     transform: translateX(0%);
     opacity: 1;
   }
+
   to {
     transform: translateX(100%);
     opacity: 0;
@@ -65,12 +66,12 @@
   animation: slide-out-right 1s forwards;
 }
 
-
 @keyframes slide-in-up {
   from {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0%);
     opacity: 1;
@@ -81,12 +82,12 @@
   animation: slide-in-up 1s forwards;
 }
 
-
 @keyframes slide-out-up {
   from {
     transform: translateY(0%);
     opacity: 1;
   }
+
   to {
     transform: translateY(-100%);
     opacity: 0;
@@ -97,12 +98,12 @@
   animation: slide-out-up 1s forwards;
 }
 
-
 @keyframes slide-in-down {
   from {
     transform: translateY(-100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0%);
     opacity: 1;
@@ -113,12 +114,12 @@
   animation: slide-in-down 1s forwards;
 }
 
-
 @keyframes slide-out-down {
   from {
     transform: translateY(0%);
     opacity: 1;
   }
+
   to {
     transform: translateY(100%);
     opacity: 0;
@@ -129,13 +130,13 @@
   animation: slide-out-down 1s forwards;
 }
 
-
 /* fade */
 
 @keyframes fade-in {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -145,11 +146,11 @@
   animation: fade-in 1s forwards;
 }
 
-
 @keyframes fade-out {
   from {
     opacity: 1;
   }
+
   to {
     opacity: 0;
   }
@@ -159,7 +160,6 @@
   animation: fade-out 1s forwards;
 }
 
-
 /* zoom */
 
 @keyframes zoom-in {
@@ -167,6 +167,7 @@
     transform: scale(0.5);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -177,12 +178,12 @@
   animation: zoom-in 1s forwards;
 }
 
-
 @keyframes zoom-out {
   from {
     transform: scale(1);
     opacity: 1;
   }
+  
   to {
     transform: scale(2);
     opacity: 0;
