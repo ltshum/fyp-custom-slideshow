@@ -5,20 +5,20 @@ import {
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import pluginMain from './plugin';
+import { PLUGIN_ID } from './constants';
 
 /**
  * Initialization data for the custom-slideshow extension.
  */
 const plugin: JupyterFrontEndPlugin<void> = {
-  id: 'custom-slideshow:plugin',
+  id: PLUGIN_ID,
   description: 'JupyterLab extension for animated slideshow.',
   autoStart: true,
-  requires: [INotebookTracker],
-  optional: [ISettingRegistry],
+  requires: [INotebookTracker, ISettingRegistry],
   activate: (
     app: JupyterFrontEnd,
     nbTracker: INotebookTracker,
-    settingRegistry: ISettingRegistry | null
+    settingRegistry: ISettingRegistry
   ) => {
     console.log('JupyterLab extension custom-slideshow is activated!');
     pluginMain(app, nbTracker, settingRegistry);

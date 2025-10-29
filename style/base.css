@@ -18,6 +18,10 @@
   z-index: 1;
 }
 
+.slide .hide-code .jp-Cell-inputWrapper {
+  display: none;
+}
+
 .slide .jp-Toolbar, /* tool bar at top right of cell */
 .slide .jp-Collapser, /* blue stripe at left of cell */
 .slide .jp-InputArea-prompt, /* status box of code cells */
@@ -38,7 +42,7 @@
   scrollbar-width: none;
 }
 
-/* .slide-nav-right {
+.slide-nav-right {
   background-color: red;
   padding: 20px;
   opacity: 0.5;
@@ -47,4 +51,3 @@
   right: 50px;
   z-index: 1000;
 }
- */

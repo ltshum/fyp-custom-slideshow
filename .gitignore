@@ -124,7 +124,6 @@ dmypy.json
 # Yarn cache
 .yarn/
 
-# Copier VS Code settings
+# VS Code
 .vscode/
 .copier-answer.vscode.yml
-node_modules

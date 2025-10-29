@@ -1,21 +1,21 @@
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-import { SlideType, Transition } from './slideStyle';
+import { PLUGIN_ID, SlideType, Transition } from './constants';
 import { Cell, Slide, Subslide, Fragment } from './slideType';
 
 const plugin = (
   app: JupyterFrontEnd,
   tracker: INotebookTracker,
-  setting: ISettingRegistry | null
+  settings: ISettingRegistry
 ) => {
   const { commands } = app;
   console.log('App:');
   console.log(app);
   console.log('Tracker:');
   console.log(tracker);
-  console.log('Setting:');
-  console.log(setting);
+  console.log('Settings:');
+  console.log(settings);
 
   let panel: NotebookPanel;
   let windowedPanel: HTMLElement;
@@ -29,6 +29,66 @@ const plugin = (
   let cellIndicies: any = {};
   let activeIndex = 0;
   let navPrevActive = activeIndex;
+
+  // settings
+  const loadSettings = (setting: any) => {
+    return {
+      dummy: setting.get('dummy').composite as boolean
+    };
+  };
+
+  Promise.all([app.restored, settings.load(PLUGIN_ID)]).then(
+    ([, settingRes]) => {
+      let setting = loadSettings(settingRes);
+      // update settings
+      settingRes.changed.connect(() => {
+        console.log('custom-slideshow settings updated:');
+        setting = loadSettings(settingRes);
+        console.log(setting);
+      });
+
+      // main menu commands
+      commands.addCommand('slideshow:start-first', {
+        label: 'Start from first cell',
+        isEnabled: () => !slideToggle,
+        execute: async () => {
+          try {
+            initSlideshow();
+          } catch (e) {
+            console.error('Error starting slideshow:');
+            console.error(e);
+          }
+        }
+      });
+
+      commands.addCommand('slideshow:start-current', {
+        label: 'Start from current cell',
+        isEnabled: () => !slideToggle,
+        execute: () => {
+          try {
+            initSlideshow('current');
+          } catch (e) {
+            console.error('Error starting slideshow:');
+            console.error(e);
+          }
+        }
+      });
+
+      // placeholder command & emergency exit
+      commands.addCommand('slideshow:exit', {
+        label: 'Exit slideshow',
+        isEnabled: () => slideToggle,
+        execute: () => {
+          try {
+            exitSlideshow();
+          } catch (e) {
+            console.error('Error exiting slideshow:');
+            console.error(e);
+          }
+        }
+      });
+    }
+  );
 
   const initSlideshow = (mode: 'first' | 'current' = 'first') => {
     slideToggle = true;
@@ -153,6 +213,15 @@ const plugin = (
         initSlides(panel);
         initLayout(pageIndex);
 
+        // const navRight = document.createElement("button");
+        // navRight.className = "slide-nav-right";
+        // navRight.textContent = "click me!!";
+        // navRight.addEventListener("click", () => {
+        //   let presenterWindow = window.open('', '_blank', 'width=600,height=400');
+        //   presenterWindow?.document.writeln('<html><head><title>Presenter View</title></head><body><h1>Presenter View</h1></body></html>');
+        // });
+        // panel.content.node.appendChild(navRight);
+
         app.commands.commandExecuted.connect(navListener);
         document.addEventListener('keydown', slideNav);
         document.addEventListener('fullscreenchange', exitEvent);
@@ -188,6 +257,17 @@ const plugin = (
     }
   };
 
+  const addToSlide = (item: any, slide: any) => {
+    item.cell.node.classList.add(`cell${item.index}`);
+    if (
+      item.cell.model.type === 'code' &&
+      item.cell.model.metadata.slideshow?.hide_code
+    ) {
+      item.cell.node.classList.add('hide-code');
+    }
+    slide.appendChild(item.cell.node);
+  };
+
   // init DOM elements
   /* 
   <(sub)slide>
@@ -204,19 +284,14 @@ const plugin = (
     layout.forEach((slide, index) => {
       slides[index].classList.add(SlideType.SLIDE);
 
-      slide.cell.node.classList.add(`cell${slide.index}`);
-      slides[index].appendChild(slide.cell.node);
-
+      addToSlide(slide, slides[index]);
       slide.children?.forEach((child: any) => {
-        child.cell.node.classList.add(`cell${child.index}`);
-        slides[index].appendChild(child.cell.node);
+        addToSlide(child, slides[index]);
       });
       slide.fragments?.forEach((fragment: any) => {
-        fragment.cell.node.classList.add(`cell${fragment.index}`);
-        slides[index].appendChild(fragment.cell.node);
+        addToSlide(fragment, slides[index]);
         fragment.children?.forEach((child: any) => {
-          child.cell.node.classList.add(`cell${child.index}`);
-          slides[index].appendChild(child.cell.node);
+          addToSlide(child, slides[index]);
         });
       });
     });
@@ -286,6 +361,7 @@ const plugin = (
     ) {
       return;
     }
+
     prevIndex = pageIndex;
 
     // navigate fragments first
@@ -756,49 +832,10 @@ const plugin = (
     await getCells(panel).then(cells => {
       cells.forEach(cell => {
         clearStyles(cell.node);
+        cell.node.classList.remove('hide-code');
       });
     });
   };
-
-  // main menu commands
-  commands.addCommand('slideshow:start-first', {
-    label: 'Start from first cell',
-    isEnabled: () => !slideToggle,
-    execute: async () => {
-      try {
-        initSlideshow();
-      } catch (e) {
-        console.error('Error starting slideshow:');
-        console.error(e);
-      }
-    }
-  });
-
-  commands.addCommand('slideshow:start-current', {
-    label: 'Start from current cell',
-    isEnabled: () => !slideToggle,
-    execute: () => {
-      try {
-        initSlideshow('current');
-      } catch (e) {
-        console.error('Error starting slideshow:');
-        console.error(e);
-      }
-    }
-  });
-
-  commands.addCommand('slideshow:exit', {
-    label: 'Exit slideshow',
-    isEnabled: () => slideToggle,
-    execute: () => {
-      try {
-        exitSlideshow();
-      } catch (e) {
-        console.error('Error exiting slideshow:');
-        console.error(e);
-      }
-    }
-  });
 };
 
 export default plugin;

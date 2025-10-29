@@ -3,7 +3,14 @@
   "title": "custom-slideshow",
   "description": "custom-slideshow settings.",
   "type": "object",
-  "properties": {},
+  "properties": {
+    "dummy": {
+      "type": "boolean",
+      "title": "Dummy",
+      "description": "Placeholder",
+      "default": false
+    }
+  },
   "additionalProperties": false,
   "jupyter.lab.menus": {
     "main": [
@@ -19,7 +26,7 @@
             "command": "slideshow:start-current"
           },
           {
-            "command": "slideshow:exit"
+            "command": "slideshow:presenter-view"
           }
         ]
       }
@@ -29,6 +36,13 @@
     {
       "id": "slideshow-metadata-form:plugin",
       "label": "Slideshow Tools",
+      "uiSchema": {
+        "ui:order": [
+          "/slideshow/transition",
+          "/slideshow/slide_dir",
+          "/slideshow/hide_code"
+        ]
+      },
       "metadataSchema": {
         "type": "object",
         "properties": {
@@ -38,6 +52,11 @@
             "enum": ["", "slide", "fade", "zoom"],
             "enumNames": ["-", "Slide", "Fade", "Zoom"],
             "default": ""
+          },
+          "/slideshow/hide_code": {
+            "title": "Hide Code Cell",
+            "type": "boolean",
+            "default": false
           }
         },
         "allOf": [
@@ -61,6 +80,11 @@
             }
           }
         ]
+      },
+      "metadataOptions": {
+        "/slideshow/hide_code": {
+          "cellTypes": ["code"]
+        }
       }
     }
   ]

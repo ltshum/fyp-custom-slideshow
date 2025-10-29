@@ -1,3 +1,5 @@
+const PLUGIN_ID = 'custom-slideshow:plugin';
+
 enum SlideType {
   SLIDE = 'slide',
   SUBSLIDE = 'subslide',
@@ -14,4 +16,4 @@ enum Transition {
   ZOOM = 'zoom'
 }
 
-export { SlideType, Transition };
+export { PLUGIN_ID, SlideType, Transition };
