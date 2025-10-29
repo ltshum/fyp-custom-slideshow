@@ -26,7 +26,7 @@
             "command": "slideshow:start-current"
           },
           {
-            "command": "slideshow:presenter-view"
+            "command": "slideshow:exit"
           }
         ]
       }
@@ -40,6 +40,7 @@
         "ui:order": [
           "/slideshow/transition",
           "/slideshow/slide_dir",
+          "/slideshow/transition_duration",
           "/slideshow/hide_code"
         ]
       },
@@ -75,6 +76,27 @@
                   "type": "string",
                   "enum": ["horizontal", "vertical"],
                   "enumNames": ["Horizontal", "Vertical"]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "not": {
+                "properties": {
+                  "/slideshow/transition": {
+                    "const": ""
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "/slideshow/transition_duration": {
+                  "title": "Transition Duration (seconds)",
+                  "description": "Default: 1 second",
+                  "type": "number",
+                  "minimum": 0
                 }
               }
             }

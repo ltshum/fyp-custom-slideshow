@@ -206,7 +206,6 @@ const plugin = (
             }
             navPrevActive = activeIndex;
             panel.content.activeCellIndex = activeIndex;
-            console.log(`Set active cell to ${activeIndex}: 1`);
           }
           prevIndex = pageIndex;
         }
@@ -248,7 +247,6 @@ const plugin = (
       command.id === 'notebook:move-cursor-up' ||
       command.id === 'notebook:move-cursor-down'
     ) {
-      console.log(`Revert active cell to ${navPrevActive}`);
       panel.content.activeCellIndex = navPrevActive;
     }
     // activate next cell when shift+enter
@@ -372,17 +370,9 @@ const plugin = (
     const visibleFragments = fragments.filter((item: any) =>
       item.cell.node.classList.contains(SlideType.VISIBLE)
     );
-    visibleFragments.forEach((item: any) => {
-      console.log(
-        `Visible fragment: ${item.index}, activeIndex: ${activeIndex}, ${item.index > activeIndex}`
-      );
-    });
     const iterFragments = visibleFragments.filter(
       (item: any) => item.index > activeIndex
     );
-    console.log(hiddenFragments);
-    console.log(visibleFragments);
-    console.log(iterFragments);
     if (
       (event.key === ' ' ||
         event.key === 'ArrowRight' ||
@@ -400,6 +390,7 @@ const plugin = (
           true,
           true,
           hiddenFragments[0].transition,
+          hiddenFragments[0].cell.model.metadata.slideshow?.transition_duration,
           hiddenFragments[0].cell.model.metadata.slideshow?.slide_dir
         );
         return;
@@ -415,6 +406,8 @@ const plugin = (
         true,
         false,
         visibleFragments[visibleFragments.length - 1].transition,
+        visibleFragments[visibleFragments.length - 1].cell.model.metadata
+          .slideshow?.transition_duration,
         visibleFragments[visibleFragments.length - 1].cell.model.metadata
           .slideshow?.slide_dir
       );
@@ -609,6 +602,7 @@ const plugin = (
           false,
           forward,
           layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
           layout[pageIndex] instanceof Subslide
         );
@@ -618,6 +612,7 @@ const plugin = (
           false,
           forward,
           layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
           layout[pageIndex] instanceof Subslide
         );
@@ -628,6 +623,7 @@ const plugin = (
           false,
           forward,
           layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
           layout[prevIndex] instanceof Subslide
         );
@@ -637,6 +633,7 @@ const plugin = (
           false,
           forward,
           layout[pageIndex].transition,
+          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
           layout[prevIndex] instanceof Subslide
         );
@@ -660,6 +657,7 @@ const plugin = (
     fragment: boolean = false, // to update a fragment separately
     forward: boolean = true, // nav direction is forward (" ", "ArrowRight", "ArrowDown")
     transition: string = '',
+    transition_duration: number = 1,
     slideDir: undefined | 'horizontal' | 'vertical' = undefined,
     isSubslide: boolean = false,
     visible: boolean = true, // fragment is visible
@@ -681,6 +679,9 @@ const plugin = (
           } else {
             item.cell.node.classList.add(`${transition}-in`);
           }
+          if (transition_duration !== undefined) {
+            item.cell.node.style.animationDuration = `${transition_duration}s`;
+          }
         }
         item.children?.forEach((child: any) => {
           updateStyle(
@@ -689,6 +690,7 @@ const plugin = (
             fragment,
             forward,
             transition,
+            transition_duration,
             slideDir,
             isSubslide,
             visible,
@@ -710,6 +712,9 @@ const plugin = (
             } else {
               slides[page].classList.add(`${transition}-in`);
             }
+            if (transition_duration !== undefined) {
+              slides[page].style.animationDuration = `${transition_duration}s`;
+            }
           }
         }
       }
@@ -717,10 +722,7 @@ const plugin = (
       activeIndex = item.index;
       navPrevActive = activeIndex;
       panel.content.activeCellIndex = activeIndex;
-      console.log(`Set active cell to ${activeIndex}: 2`);
       item.fragments?.forEach((frag: any) => {
-        // console.log(`update fragment ${frag.index}:`);
-        // console.log(frag.cell.node.classList.contains(SlideType.VISIBLE));
         updateStyle(
           frag,
           frag.index <= tempActive,
@@ -728,11 +730,11 @@ const plugin = (
           false,
           '',
           undefined,
+          undefined,
           false,
           frag.index <= tempActive,
           frag.index <= tempActive
         );
-        // console.log(frag.cell.node.classList.contains(SlideType.VISIBLE));
       });
     } else {
       if (fragment) {
@@ -748,6 +750,9 @@ const plugin = (
           } else {
             item.cell.node.classList.add(`${transition}-out`);
           }
+          if (transition_duration !== undefined) {
+            item.cell.node.style.animationDuration = `${transition_duration}s`;
+          }
         }
         item.cell.node.classList.remove(SlideType.VISIBLE);
         item.cell.node.classList.add(SlideType.HIDDEN);
@@ -758,6 +763,7 @@ const plugin = (
             fragment,
             forward,
             transition,
+            transition_duration,
             slideDir,
             isSubslide,
             visible,
@@ -778,6 +784,9 @@ const plugin = (
           } else {
             slides[page]?.classList.add(`${transition}-out`);
           }
+          if (transition_duration !== undefined) {
+            slides[page].style.animationDuration = `${transition_duration}s`;
+          }
         }
         slides[page]?.classList.add(SlideType.HIDDEN);
       }
@@ -790,7 +799,6 @@ const plugin = (
         }
         navPrevActive = activeIndex;
         panel.content.activeCellIndex = activeIndex;
-        console.log(`Set active cell to ${activeIndex}: 3`);
       }
       item.fragments?.forEach((frag: any) => {
         const active = activeIndex;
@@ -800,6 +808,7 @@ const plugin = (
           frag.index > active,
           false,
           '',
+          undefined,
           undefined,
           false,
           frag.index <= active,
@@ -813,6 +822,7 @@ const plugin = (
     if (slideType) {
       node.classList.remove(...Object.values(SlideType));
     }
+    node.style.removeProperty('animation-duration');
     node.classList.remove(SlideType.HIDDEN);
     ['in', 'out'].forEach(dir => {
       node.classList.remove(
