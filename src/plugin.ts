@@ -520,6 +520,8 @@ const plugin = (
   const updateLayout = (forward: boolean = true) => {
     console.log(`prevIndex: ${prevIndex}, pageIndex: ${pageIndex}`);
     if (pageIndex !== prevIndex) {
+      // reset view from possible overflow on prev page
+      slides[pageIndex].scrollIntoView();
       clearStyles(slides[prevIndex], false);
       clearStyles(slides[pageIndex], false);
       slides[prevIndex].classList.remove('focused');
