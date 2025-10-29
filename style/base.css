@@ -22,12 +22,15 @@
 .slide .jp-Collapser, /* blue stripe at left of cell */
 .slide .jp-InputArea-prompt, /* status box of code cells */
 .slide .jp-OutputArea-prompt /* blank space of code cell output */ {
-  display: none;
+  /* display: none; */
 }
 
-.slide .jp-RenderedMarkdown /* border of selected markdown cells */ {
-  border-color: transparent !important;
-  box-shadow: none !important;
+.slide .jp-RenderedMarkdown /* gray border of selected markdown cells */ {
+  /* border-color: transparent !important; */
+}
+
+.slide .jp-mod-active /* blue border of selected cells */ {
+  /* box-shadow: none !important; */
 }
 
 .slide-container {

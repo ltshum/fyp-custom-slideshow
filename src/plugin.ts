@@ -2,6 +2,7 @@ import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { SlideType, Transition } from './slideStyle';
+import { Cell, Slide, Subslide, Fragment } from './slideType';
 
 const plugin = (
   app: JupyterFrontEnd,
@@ -16,14 +17,18 @@ const plugin = (
   console.log('Setting:');
   console.log(setting);
 
+  let panel: NotebookPanel;
+  let windowedPanel: HTMLElement;
+  let windowingMode: 'defer' | 'full' | 'none';
+
   let slideToggle = false;
   let layout: any[] = [];
   let slides: any[] = [];
   let pageIndex = 0;
   let prevIndex = pageIndex;
   let cellIndicies: any = {};
-  let cellNum = 0;
   let activeIndex = 0;
+  let navPrevActive = activeIndex;
 
   const initSlideshow = (mode: 'first' | 'current' = 'first') => {
     slideToggle = true;
@@ -32,109 +37,67 @@ const plugin = (
     pageIndex = 0;
     prevIndex = pageIndex;
     cellIndicies = {};
-    cellNum = 0;
     activeIndex = 0;
 
     if (tracker.currentWidget) {
-      const panel: NotebookPanel = tracker.currentWidget;
-      miscStyles(panel);
+      panel = tracker.currentWidget;
       panel.context.ready.then(async () => {
+        miscStyles(panel);
+        panel.content.activeCellChanged.connect(activeListener);
         await getCells(panel).then(cells => {
-          cellNum = cells.length;
           cells.forEach((cell, index) => {
             const slideType = cell.model.metadata.slideshow?.slide_type;
             const transition = cell.model.metadata.slideshow?.transition;
 
-            if (slideType === SlideType.SLIDE) {
-              cellIndicies[index] = true;
-              layout.push({
-                index: index,
-                cell: cell,
-                type: slideType,
-                transition: transition,
-                fragments: [],
-                children: []
-              });
-            } else if (slideType === SlideType.SUBSLIDE) {
-              cellIndicies[index] = true;
-              if (layout.length === 0) {
-                layout.push({
-                  index: index,
-                  cell: cell,
-                  type: SlideType.SLIDE,
-                  transition: transition,
-                  fragments: [],
-                  children: []
-                });
-              } else {
-                layout.push({
-                  index: index,
-                  cell: cell,
-                  type: slideType,
-                  transition: transition,
-                  fragments: [],
-                  children: []
-                });
+            switch (slideType) {
+              case SlideType.SLIDE: {
+                cellIndicies[index] = true;
+                layout.push(new Slide(index, cell, transition));
+                break;
               }
-            } else if (slideType === SlideType.FRAGMENT) {
-              cellIndicies[index] = true;
-              if (layout.length === 0) {
-                layout.push({
-                  index: index,
-                  cell: cell,
-                  type: SlideType.SLIDE,
-                  transition: transition,
-                  fragments: [],
-                  children: []
-                });
-              } else {
-                const lastSlide = layout[layout.length - 1];
-                lastSlide.fragments.push({
-                  index: index,
-                  cell: cell,
-                  type: slideType,
-                  transition: transition,
-                  children: []
-                });
+              case SlideType.SUBSLIDE: {
+                cellIndicies[index] = true;
+                layout.push(
+                  layout.length === 0
+                    ? new Slide(index, cell, transition)
+                    : new Subslide(index, cell, transition)
+                );
+                break;
               }
-            } else if (!slideType) {
-              if (layout.length === 0) {
-                layout.push({
-                  index: index,
-                  cell: cell,
-                  type: SlideType.SLIDE,
-                  transition: transition,
-                  fragments: [],
-                  children: []
-                });
-              } else {
-                const lastSlide = layout[layout.length - 1];
-                if (lastSlide.fragments.length > 0) {
-                  lastSlide.fragments[
-                    lastSlide.fragments.length - 1
-                  ].children.push({
-                    index: index,
-                    cell: cell
-                  });
+              case SlideType.FRAGMENT: {
+                cellIndicies[index] = true;
+                if (layout.length === 0) {
+                  layout.push(new Slide(index, cell, transition));
                 } else {
-                  lastSlide.children.push({
-                    index: index,
-                    cell: cell
-                  });
+                  // add to last slide
+                  layout[layout.length - 1].fragments.push(
+                    new Fragment(index, cell, transition)
+                  );
                 }
+                break;
+              }
+              case SlideType.SKIP: {
+                break;
+              }
+              // no slide type
+              default: {
+                if (layout.length === 0) {
+                  layout.push(new Slide(index, cell, transition));
+                } else {
+                  const lastSlide = layout[layout.length - 1];
+                  // add to last fragment
+                  if (lastSlide.fragments.length > 0) {
+                    lastSlide.fragments[
+                      lastSlide.fragments.length - 1
+                    ].children.push(new Cell(index, cell));
+                  } else {
+                    lastSlide.children.push(new Cell(index, cell));
+                  }
+                }
+                break;
               }
             }
           });
-          // const navRight = document.createElement("button");
-          // navRight.className = "slideshow-nav-right";
-          // navRight.textContent = "click me!!";
-          // navRight.addEventListener("click", () => {
-          //   if (pageIndex < layout.length-1) {
-          //     pageIndex++;
-          //     updateLayout(pageIndex, layout);
-          //   }
-          // });
-          // panel.node.appendChild(navRight);
         });
 
         if (mode === 'first') {
@@ -181,20 +144,15 @@ const plugin = (
             } else {
               activeIndex = layout[pageIndex].index;
             }
+            navPrevActive = activeIndex;
             panel.content.activeCellIndex = activeIndex;
+            console.log(`Set active cell to ${activeIndex}: 1`);
           }
           prevIndex = pageIndex;
-          // activate all fragments before activeIndex
-          layout[pageIndex].fragments
-            ?.filter((fragment: any) => fragment.index <= activeIndex)
-            .forEach((fragment: any) => {
-              updateStyle(fragment, true, true, false);
-            });
         }
         initSlides(panel);
         initLayout(pageIndex);
 
-        console.log(`Active Index: ${activeIndex}`);
         app.commands.commandExecuted.connect(navListener);
         document.addEventListener('keydown', slideNav);
         document.addEventListener('fullscreenchange', exitEvent);
@@ -209,52 +167,24 @@ const plugin = (
     }
   };
 
-  // go to next cell when shift+enter
+  const activeListener = (args: any) => {
+    activeIndex = panel.content.activeCellIndex;
+  };
+
   const navListener = (sender: any, command: any) => {
     console.log(sender, command);
-    if (command.id === 'notebook:run-cell-and-select-next') {
-      const prevActive = activeIndex;
-      do {
-        activeIndex++;
-      } while (!cellIndicies[activeIndex] && activeIndex < cellNum - 1);
-      let activeCell = layout.find(
-        item =>
-          item.index === activeIndex ||
-          item.fragments?.some(
-            (fragment: any) => fragment.index === activeIndex
-          )
-      );
-      if (!activeCell) {
-        activeIndex = prevActive;
-        activeCell = layout.find(
-          item =>
-            item.index === activeIndex ||
-            item.fragments?.some(
-              (fragment: any) => fragment.index === activeIndex
-            )
-        );
-      }
-
-      prevIndex = pageIndex;
-      pageIndex = layout.findIndex(item => item === activeCell);
-      if (pageIndex === -1) {
-        pageIndex = prevIndex;
-      }
-
-      if (activeCell.index !== activeIndex) {
-        const fragment = activeCell.fragments.find(
-          (item: any) => item.index === activeIndex
-        );
-        updateStyle(
-          fragment,
-          true,
-          true,
-          true,
-          fragment.transition,
-          fragment.cell.model.metadata.slideshow?.slide_dir
-        );
-      }
-      updateLayout();
+    // avoid overlap with normal navigation
+    // note: command is fired after plugin listener
+    if (
+      command.id === 'notebook:move-cursor-up' ||
+      command.id === 'notebook:move-cursor-down'
+    ) {
+      console.log(`Revert active cell to ${navPrevActive}`);
+      panel.content.activeCellIndex = navPrevActive;
+    }
+    // activate next cell when shift+enter
+    else if (command.id === 'notebook:run-cell-and-select-next') {
+      slideNav(new KeyboardEvent('keydown', { key: ' ' }));
     }
   };
 
@@ -268,7 +198,6 @@ const plugin = (
   </(sub)slide>
   */
   const initSlides = (panel: NotebookPanel) => {
-    let prev_slide: any = null;
     for (let i = 0; i < layout.length; i++) {
       slides.push(document.createElement('div'));
     }
@@ -290,16 +219,11 @@ const plugin = (
           slides[index].appendChild(child.cell.node);
         });
       });
-      if (!prev_slide) {
-        panel.content.node.insertBefore(
-          slides[index],
-          panel.content.node.firstChild
-        );
-        prev_slide = slides[index];
-      } else {
-        panel.content.node.insertBefore(slides[index], prev_slide.nextSibling);
-      }
     });
+
+    for (let i = slides.length - 1; i >= 0; i--) {
+      panel.content.node.insertBefore(slides[i], panel.content.node.firstChild);
+    }
 
     layout.forEach(slide => {
       customStyle(slide);
@@ -319,8 +243,7 @@ const plugin = (
       )
       .forEach(child => {
         if (add) {
-          console.log('Adding font size');
-          console.log(window.getComputedStyle(child).fontSize);
+          // console.log(window.getComputedStyle(child).fontSize);
           // TODO: put in metadata for cell size, position, etc.
           // placeholder style for not having to squeeze eyes
           child.setAttribute('style', 'font-size: 200%;');
@@ -373,21 +296,38 @@ const plugin = (
     const visibleFragments = fragments.filter((item: any) =>
       item.cell.node.classList.contains(SlideType.VISIBLE)
     );
+    visibleFragments.forEach((item: any) => {
+      console.log(
+        `Visible fragment: ${item.index}, activeIndex: ${activeIndex}, ${item.index > activeIndex}`
+      );
+    });
+    const iterFragments = visibleFragments.filter(
+      (item: any) => item.index > activeIndex
+    );
+    console.log(hiddenFragments);
+    console.log(visibleFragments);
+    console.log(iterFragments);
     if (
       (event.key === ' ' ||
         event.key === 'ArrowRight' ||
         event.key === 'ArrowDown') &&
-      hiddenFragments.length > 0
+      (hiddenFragments.length > 0 || iterFragments.length > 0)
     ) {
-      updateStyle(
-        hiddenFragments[0],
-        true,
-        true,
-        true,
-        hiddenFragments[0].transition,
-        hiddenFragments[0].cell.model.metadata.slideshow?.slide_dir
-      );
-      return;
+      if (iterFragments.length > 0) {
+        updateStyle(iterFragments[0], true, true);
+        return;
+      }
+      if (hiddenFragments.length > 0) {
+        updateStyle(
+          hiddenFragments[0],
+          true,
+          true,
+          true,
+          hiddenFragments[0].transition,
+          hiddenFragments[0].cell.model.metadata.slideshow?.slide_dir
+        );
+        return;
+      }
     }
     if (
       (event.key === 'ArrowUp' || event.key === 'ArrowLeft') &&
@@ -417,12 +357,12 @@ const plugin = (
           pageIndex++;
         } while (
           pageIndex < layout.length - 1 &&
-          layout[pageIndex].type === SlideType.SUBSLIDE
+          layout[pageIndex] instanceof Subslide
         );
         // stay on last slide
         if (
           pageIndex === layout.length - 1 &&
-          layout[pageIndex].type === SlideType.SUBSLIDE
+          layout[pageIndex] instanceof Subslide
         ) {
           pageIndex = prevIndex;
         }
@@ -440,16 +380,13 @@ const plugin = (
       if (pageIndex > 0) {
         do {
           pageIndex--;
-        } while (
-          pageIndex > 0 &&
-          layout[pageIndex].type === SlideType.SUBSLIDE
-        );
+        } while (pageIndex > 0 && layout[pageIndex] instanceof Subslide);
         updateLayout(false);
       }
     } else if (event.key === 'ArrowDown') {
       if (
         pageIndex < layout.length - 1 &&
-        layout[pageIndex + 1].type === SlideType.SUBSLIDE
+        layout[pageIndex + 1] instanceof Subslide
       ) {
         pageIndex++;
         const nextHiddenFragments = layout[pageIndex].fragments.filter(
@@ -463,7 +400,7 @@ const plugin = (
         updateLayout();
       }
     } else if (event.key === 'ArrowUp') {
-      if (pageIndex > 0 && layout[pageIndex].type !== SlideType.SLIDE) {
+      if (pageIndex > 0 && !(layout[pageIndex] instanceof Slide)) {
         pageIndex--;
         updateLayout(false);
       }
@@ -480,38 +417,70 @@ const plugin = (
 
   const exitSlideshow = async () => {
     slideToggle = false;
-
-    if (tracker.currentWidget) {
-      const panel: NotebookPanel = tracker.currentWidget;
-      clearAll(panel);
-      slides.forEach(slide => {
-        panel.content.node.removeChild(slide);
-      });
-      app.commands.commandExecuted.disconnect(navListener);
-      document.removeEventListener('keydown', slideNav);
-      document.removeEventListener('fullscreenchange', exitEvent);
-    }
+    panel.content.activeCellChanged.disconnect(activeListener);
+    clearAll(panel);
+    slides.forEach(slide => {
+      panel.content.node.removeChild(slide);
+    });
+    app.commands.commandExecuted.disconnect(navListener);
+    document.removeEventListener('keydown', slideNav);
+    document.removeEventListener('fullscreenchange', exitEvent);
   };
 
   // clean up notebook layout for slideshow
-  const miscStyles = (panel: NotebookPanel, start: boolean = true) => {
+  const miscStyles = async (panel: NotebookPanel, start: boolean = true) => {
     if (start) {
       panel.content.addClass('slide-container');
       panel.toolbar.addClass(SlideType.HIDDEN);
+
+      // stop windowing update, which messes with cell rendering
+      // code ref: jupyterlab-rise
+      windowingMode = panel.content.notebookConfig.windowingMode;
+      panel.content.notebookConfig = {
+        ...panel.content.notebookConfig,
+        windowingMode: 'none'
+      };
+      // detach cells
+      windowedPanel = document.querySelector(
+        '.slide-container .jp-WindowedPanel-viewport'
+      ) as HTMLElement;
+      await getCells(panel).then(cells => {
+        cells.forEach(cell => {
+          try {
+            windowedPanel.removeChild(cell.node);
+          } catch (e) {
+            /* cell is already detached by Jupyter windowing */
+          }
+        });
+      });
+
       for (let i = 0; i < panel.content.node.children.length; i++) {
         panel.content.node.children.item(i)?.classList.add(SlideType.HIDDEN);
       }
-      const footers = document.getElementsByClassName('jp-Notebook-footer');
+      const footers = document.querySelectorAll('.jp-Notebook-footer');
       for (let i = 0; i < footers.length; i++) {
         footers.item(i)?.classList.add(SlideType.HIDDEN);
       }
     } else {
       panel.content.removeClass('slide-container');
       panel.toolbar.removeClass(SlideType.HIDDEN);
+
+      // resume windowing update
+      panel.content.notebookConfig = {
+        ...panel.content.notebookConfig,
+        windowingMode: windowingMode
+      };
+      // reattach cells
+      await getCells(panel).then(cells => {
+        cells.forEach(cell => {
+          windowedPanel.appendChild(cell.node);
+        });
+      });
+
       for (let i = 0; i < panel.content.node.children.length; i++) {
         panel.content.node.children.item(i)?.classList.remove(SlideType.HIDDEN);
       }
-      const footers = document.getElementsByClassName('jp-Notebook-footer');
+      const footers = document.querySelectorAll('.jp-Notebook-footer');
       for (let i = 0; i < footers.length; i++) {
         footers.item(i)?.classList.remove(SlideType.HIDDEN);
       }
@@ -530,6 +499,8 @@ const plugin = (
   };
 
   const initLayout = (index: number = 0) => {
+    // TODO: refactor style-related functions so that activeIndex doesn't change here
+    const active = activeIndex;
     for (let i = 0; i < layout.length; i++) {
       clearStyles(slides[i], false);
       layout[i].fragments?.forEach((fragment: any) => {
@@ -537,10 +508,17 @@ const plugin = (
       });
       updateStyle(layout[i], i === index);
     }
+    // activate every fragment in current page before activeIndex
+    layout[index].fragments
+      ?.filter((fragment: any) => fragment.index <= active)
+      .forEach((fragment: any) => {
+        updateStyle(fragment, true, true);
+      });
     slides[index].classList.add('focused');
   };
 
   const updateLayout = (forward: boolean = true) => {
+    console.log(`prevIndex: ${prevIndex}, pageIndex: ${pageIndex}`);
     if (pageIndex !== prevIndex) {
       clearStyles(slides[prevIndex], false);
       clearStyles(slides[pageIndex], false);
@@ -554,7 +532,7 @@ const plugin = (
           forward,
           layout[pageIndex].transition,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[pageIndex].type
+          layout[pageIndex] instanceof Subslide
         );
         updateStyle(
           layout[pageIndex],
@@ -563,7 +541,7 @@ const plugin = (
           forward,
           layout[pageIndex].transition,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[pageIndex].type
+          layout[pageIndex] instanceof Subslide
         );
       } else {
         updateStyle(
@@ -573,7 +551,7 @@ const plugin = (
           forward,
           layout[pageIndex].transition,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[prevIndex].type
+          layout[prevIndex] instanceof Subslide
         );
         updateStyle(
           layout[pageIndex],
@@ -582,7 +560,7 @@ const plugin = (
           forward,
           layout[pageIndex].transition,
           layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[prevIndex].type
+          layout[prevIndex] instanceof Subslide
         );
       }
     }
@@ -598,14 +576,14 @@ const plugin = (
       : `${Transition.SLIDE}-${dir}-${axis === 'vertical' ? 'down' : 'right'}`;
   };
 
-  const updateStyle = (
+  const updateStyle = async (
     item: any,
     add: boolean = true, // slide is visible
     fragment: boolean = false, // to update a fragment separately
     forward: boolean = true, // nav direction is forward (" ", "ArrowRight", "ArrowDown")
     transition: string = '',
     slideDir: undefined | 'horizontal' | 'vertical' = undefined,
-    slideType: string = '',
+    isSubslide: boolean = false,
     visible: boolean = true, // fragment is visible
     active: boolean = true // cell has slide type and thus can be active
   ) => {
@@ -619,8 +597,7 @@ const plugin = (
               slideTrans(
                 'in',
                 forward,
-                slideDir ||
-                  (slideType === SlideType.SUBSLIDE ? 'vertical' : 'horizontal')
+                slideDir || (isSubslide ? 'vertical' : 'horizontal')
               )
             );
           } else {
@@ -635,7 +612,7 @@ const plugin = (
             forward,
             transition,
             slideDir,
-            slideType,
+            isSubslide,
             visible,
             false
           );
@@ -649,10 +626,7 @@ const plugin = (
                 slideTrans(
                   'in',
                   forward,
-                  slideDir ||
-                    (slideType === SlideType.SUBSLIDE
-                      ? 'vertical'
-                      : 'horizontal')
+                  slideDir || (isSubslide ? 'vertical' : 'horizontal')
                 )
               );
             } else {
@@ -661,11 +635,27 @@ const plugin = (
           }
         }
       }
-      if (active && tracker.currentWidget) {
-        activeIndex = item.index;
-        const panel: NotebookPanel = tracker.currentWidget;
-        panel.content.activeCellIndex = activeIndex;
-      }
+      const tempActive = activeIndex;
+      activeIndex = item.index;
+      navPrevActive = activeIndex;
+      panel.content.activeCellIndex = activeIndex;
+      console.log(`Set active cell to ${activeIndex}: 2`);
+      item.fragments?.forEach((frag: any) => {
+        // console.log(`update fragment ${frag.index}:`);
+        // console.log(frag.cell.node.classList.contains(SlideType.VISIBLE));
+        updateStyle(
+          frag,
+          frag.index <= tempActive,
+          true,
+          false,
+          '',
+          undefined,
+          false,
+          frag.index <= tempActive,
+          frag.index <= tempActive
+        );
+        // console.log(frag.cell.node.classList.contains(SlideType.VISIBLE));
+      });
     } else {
       if (fragment) {
         if (visible && transition) {
@@ -674,8 +664,7 @@ const plugin = (
               slideTrans(
                 'out',
                 forward,
-                slideDir ||
-                  (slideType === SlideType.SUBSLIDE ? 'vertical' : 'horizontal')
+                slideDir || (isSubslide ? 'vertical' : 'horizontal')
               )
             );
           } else {
@@ -692,7 +681,7 @@ const plugin = (
             forward,
             transition,
             slideDir,
-            slideType,
+            isSubslide,
             visible,
             false
           );
@@ -705,8 +694,7 @@ const plugin = (
               slideTrans(
                 'out',
                 forward,
-                slideDir ||
-                  (slideType === SlideType.SUBSLIDE ? 'vertical' : 'horizontal')
+                slideDir || (isSubslide ? 'vertical' : 'horizontal')
               )
             );
           } else {
@@ -719,14 +707,27 @@ const plugin = (
         do {
           activeIndex--;
         } while (activeIndex > 0 && !cellIndicies[activeIndex]);
-        if (tracker.currentWidget) {
-          if (!cellIndicies[activeIndex]) {
-            activeIndex = layout[0].index;
-          }
-          const panel: NotebookPanel = tracker.currentWidget;
-          panel.content.activeCellIndex = activeIndex;
+        if (!cellIndicies[activeIndex]) {
+          activeIndex = layout[0].index;
         }
+        navPrevActive = activeIndex;
+        panel.content.activeCellIndex = activeIndex;
+        console.log(`Set active cell to ${activeIndex}: 3`);
       }
+      item.fragments?.forEach((frag: any) => {
+        const active = activeIndex;
+        updateStyle(
+          frag,
+          frag.index <= active,
+          frag.index > active,
+          false,
+          '',
+          undefined,
+          false,
+          frag.index <= active,
+          frag.index <= active
+        );
+      });
     }
   };
 
