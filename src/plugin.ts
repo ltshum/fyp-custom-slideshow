@@ -800,19 +800,19 @@ const plugin = (
         navPrevActive = activeIndex;
         panel.content.activeCellIndex = activeIndex;
       }
+      const tempActive = activeIndex;
       item.fragments?.forEach((frag: any) => {
-        const active = activeIndex;
         updateStyle(
           frag,
-          frag.index <= active,
-          frag.index > active,
+          frag.index <= tempActive,
+          frag.index > tempActive,
           false,
           '',
           undefined,
           undefined,
           false,
-          frag.index <= active,
-          frag.index <= active
+          frag.index <= tempActive,
+          frag.index <= tempActive
         );
       });
     }
