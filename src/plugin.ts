@@ -3,6 +3,12 @@ import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { PLUGIN_ID, SlideType, Transition } from './constants';
 import { Cell, Slide, Subslide, Fragment } from './slideType';
+import Reveal from 'reveal.js';
+import '../node_modules/reveal.js/dist/reveal.css';
+import '@svgdotjs/svg.js';
+
+// avoid implicit any error
+declare const window: any;
 
 const plugin = (
   app: JupyterFrontEnd,
@@ -10,12 +16,12 @@ const plugin = (
   settings: ISettingRegistry
 ) => {
   const { commands } = app;
-  console.log('App:');
-  console.log(app);
-  console.log('Tracker:');
-  console.log(tracker);
-  console.log('Settings:');
-  console.log(settings);
+  // console.log('App:');
+  // console.log(app);
+  // console.log('Tracker:');
+  // console.log(tracker);
+  // console.log('Settings:');
+  // console.log(settings);
 
   let panel: NotebookPanel;
   let windowedPanel: HTMLElement;
@@ -29,6 +35,13 @@ const plugin = (
   let cellIndicies: any = {};
   let activeIndex = 0;
   let navPrevActive = activeIndex;
+
+  const isReveal = true;
+  let reveal: Reveal.Api | null = null;
+  // Animate plugin by Asvin Goel (https://github.com/rajgoel/reveal.js-plugins)
+  // does not work when imported at the top
+  import('./rajgoel/animate.js');
+  import('./rajgoel/loadcontent.js');
 
   // settings
   const loadSettings = (setting: any) => {
@@ -53,7 +66,11 @@ const plugin = (
         isEnabled: () => !slideToggle,
         execute: async () => {
           try {
-            initSlideshow();
+            if (isReveal) {
+              initReveal();
+            } else {
+              initSlideshow();
+            }
           } catch (e) {
             console.error('Error starting slideshow:');
             console.error(e);
@@ -62,7 +79,7 @@ const plugin = (
       });
 
       commands.addCommand('slideshow:start-current', {
-        label: 'Start from current cell',
+        label: 'Start from current cell (not working)',
         isEnabled: () => !slideToggle,
         execute: () => {
           try {
@@ -80,7 +97,11 @@ const plugin = (
         isEnabled: () => slideToggle,
         execute: () => {
           try {
-            exitSlideshow();
+            if (isReveal) {
+              exitReveal();
+            } else {
+              exitSlideshow();
+            }
           } catch (e) {
             console.error('Error exiting slideshow:');
             console.error(e);
@@ -212,15 +233,6 @@ const plugin = (
         initSlides(panel);
         initLayout(pageIndex);
 
-        // const navRight = document.createElement("button");
-        // navRight.className = "slide-nav-right";
-        // navRight.textContent = "click me!!";
-        // navRight.addEventListener("click", () => {
-        //   let presenterWindow = window.open('', '_blank', 'width=600,height=400');
-        //   presenterWindow?.document.writeln('<html><head><title>Presenter View</title></head><body><h1>Presenter View</h1></body></html>');
-        // });
-        // panel.content.node.appendChild(navRight);
-
         app.commands.commandExecuted.connect(navListener);
         document.addEventListener('keydown', slideNav);
         document.addEventListener('fullscreenchange', exitEvent);
@@ -240,7 +252,7 @@ const plugin = (
   };
 
   const navListener = (sender: any, command: any) => {
-    console.log(sender, command);
+    // console.log(sender, command);
     // avoid overlap with normal navigation
     // note: command is fired after plugin listener
     if (
@@ -264,6 +276,161 @@ const plugin = (
       item.cell.node.classList.add('hide-code');
     }
     slide.appendChild(item.cell.node);
+  };
+
+  const initReveal = () => {
+    slideToggle = true;
+    layout = [];
+    slides = [];
+
+    if (tracker.currentWidget) {
+      panel = tracker.currentWidget;
+      panel.context.ready.then(async () => {
+        miscStyles(panel);
+        await getCells(panel).then(cells => {
+          cells.forEach((cell, index) => {
+            const slideType = cell.model.metadata.slideshow?.slide_type;
+            const transition = cell.model.metadata.slideshow?.transition;
+            switch (slideType) {
+              case SlideType.SLIDE: {
+                layout.push(new Slide(index, cell, transition));
+                break;
+              }
+              case SlideType.SUBSLIDE: {
+                layout.push(
+                  layout.length === 0
+                    ? new Slide(index, cell, transition)
+                    : new Subslide(index, cell, transition)
+                );
+                break;
+              }
+              case SlideType.FRAGMENT: {
+                if (layout.length === 0) {
+                  layout.push(new Slide(index, cell, transition));
+                } else {
+                  // add to last slide
+                  layout[layout.length - 1].fragments.push(
+                    new Fragment(index, cell, transition)
+                  );
+                }
+                break;
+              }
+              case SlideType.SKIP: {
+                break;
+              }
+              // no slide type
+              default: {
+                if (layout.length === 0) {
+                  layout.push(new Slide(index, cell, transition));
+                } else {
+                  const lastSlide = layout[layout.length - 1];
+                  // add to last fragment
+                  if (lastSlide.fragments.length > 0) {
+                    lastSlide.fragments[
+                      lastSlide.fragments.length - 1
+                    ].children.push(new Cell(index, cell));
+                  } else {
+                    lastSlide.children.push(new Cell(index, cell));
+                  }
+                }
+                break;
+              }
+            }
+          });
+
+          for (let i = 0; i < layout.length; i++) {
+            if (layout[i] instanceof Slide) {
+              const slideOuter = document.createElement('section');
+              if (layout[i].cell.model.metadata.slideshow?.transition) {
+                slideOuter.setAttribute(
+                  'data-transition',
+                  layout[i].cell.model.metadata.slideshow.transition
+                );
+              }
+              const slideInner = document.createElement('section');
+              slideOuter.appendChild(slideInner);
+              addToRevealSlide(slideInner, layout[i]);
+              slides.push(slideOuter);
+            } else if (layout[i] instanceof Subslide) {
+              const subslide = document.createElement('section');
+              addToRevealSlide(subslide, layout[i]);
+              slides[slides.length - 1].appendChild(subslide);
+            }
+          }
+          // layout.forEach((slide, index) => {
+          //   slides[index].classList.add('slides');
+
+          //   addToSlide(slide, slides[index]);
+          //   slide.children?.forEach((child: any) => {
+          //     addToSlide(child, slides[index]);
+          //   });
+          //   slide.fragments?.forEach((fragment: any) => {
+          //     addToSlide(fragment, slides[index]);
+          //     fragment.children?.forEach((child: any) => {
+          //       addToSlide(child, slides[index]);
+          //     });
+          //   });
+          // });
+
+          const revealContainer = document.createElement('div');
+          revealContainer.className = 'reveal';
+          const revealSlides = document.createElement('div');
+          revealSlides.className = 'slides';
+          for (let i = 0; i < slides.length; i++) {
+            revealSlides.appendChild(slides[i]);
+          }
+          revealContainer.appendChild(revealSlides);
+          panel.content.node.insertBefore(
+            revealContainer,
+            panel.content.node.firstChild
+          );
+
+          reveal = new Reveal(revealContainer, {
+            // @ts-expect-error: required for Animate plugin to work
+            animate: {
+              autoplay: true
+            },
+            plugins: [window.RevealAnimate, window.RevealLoadContent],
+            transition: 'none'
+          });
+          reveal!.initialize();
+          // console.log(`Reveal.js plugins: ${reveal.getPlugins()}`);
+        });
+        document.addEventListener('fullscreenchange', exitRevealEvent);
+        await panel.content.node.requestFullscreen();
+      });
+    }
+  };
+
+  const exitRevealEvent = () => {
+    if (!document.fullscreenElement) {
+      exitReveal();
+    }
+  };
+
+  const addToRevealSlide = (slide: any, item: any) => {
+    if (
+      item.cell.model.type === 'code' &&
+      item.cell.model.metadata.slideshow?.hide_code
+    ) {
+      item.cell.node.classList.add('hide-code');
+    }
+    if (item.cell.model.metadata.slideshow?.transition) {
+      slide.setAttribute(
+        'data-transition',
+        item.cell.model.metadata.slideshow.transition
+      );
+    }
+    slide.appendChild(item.cell.node);
+    item.children?.forEach((child: any) => {
+      addToRevealSlide(slide, child);
+    });
+    item.fragments?.forEach((fragment: any) => {
+      const fragContainer = document.createElement('div');
+      fragContainer.classList.add('fragment');
+      addToRevealSlide(fragContainer, fragment);
+      slide.appendChild(fragContainer);
+    });
   };
 
   // init DOM elements
@@ -477,11 +644,19 @@ const plugin = (
       exitSlideshow();
       return;
     }
-    console.log('Indices:');
-    console.log(cellIndicies);
-    console.log(activeIndex);
-    console.log('Page index:');
-    console.log(pageIndex);
+    // console.log('Indices:');
+    // console.log(cellIndicies);
+    // console.log(activeIndex);
+    // console.log('Page index:');
+    // console.log(pageIndex);
+  };
+
+  const exitReveal = () => {
+    slideToggle = false;
+    clearAll(panel);
+    document.removeEventListener('fullscreenchange', exitRevealEvent);
+    panel.content.node.removeChild(panel.content.node.firstChild!);
+    reveal?.destroy();
   };
 
   const exitSlideshow = async () => {
@@ -523,9 +698,9 @@ const plugin = (
         });
       });
 
-      for (let i = 0; i < panel.content.node.children.length; i++) {
-        panel.content.node.children.item(i)?.classList.add(SlideType.HIDDEN);
-      }
+      // for (let i = 0; i < panel.content.node.children.length; i++) {
+      //   panel.content.node.children.item(i)?.classList.add(SlideType.HIDDEN);
+      // }
       const footers = document.querySelectorAll('.jp-Notebook-footer');
       for (let i = 0; i < footers.length; i++) {
         footers.item(i)?.classList.add(SlideType.HIDDEN);
@@ -587,7 +762,7 @@ const plugin = (
   };
 
   const updateLayout = (forward: boolean = true) => {
-    console.log(`prevIndex: ${prevIndex}, pageIndex: ${pageIndex}`);
+    // console.log(`prevIndex: ${prevIndex}, pageIndex: ${pageIndex}`);
     if (pageIndex !== prevIndex) {
       // reset view from possible overflow on prev page
       slides[pageIndex].scrollIntoView();
@@ -655,7 +830,7 @@ const plugin = (
     item: any,
     add: boolean = true, // slide is visible
     fragment: boolean = false, // to update a fragment separately
-    forward: boolean = true, // nav direction is forward (" ", "ArrowRight", "ArrowDown")
+    forward: boolean = true, // nav direction is forward (' ', 'ArrowRight', 'ArrowDown')
     transition: string = '',
     transition_duration: number = 1,
     slideDir: undefined | 'horizontal' | 'vertical' = undefined,

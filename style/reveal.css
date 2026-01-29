@@ -1,0 +1,16 @@
+.reveal .slides {
+  text-align: inherit !important;
+  width: 1250px !important;
+}
+
+.reveal .hide-code .jp-Cell-inputWrapper {
+  display: none;
+}
+/* 
+.reveal .fragment {
+    opacity: 0;
+    transition: none !important;
+}
+.reveal .fragment.visible {
+    opacity: 1;
+} */

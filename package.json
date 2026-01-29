@@ -58,7 +58,10 @@
     },
     "dependencies": {
         "@jupyterlab/application": "^4.0.0",
-        "@jupyterlab/settingregistry": "^4.0.0"
+        "@jupyterlab/settingregistry": "^4.0.0",
+        "@svgdotjs/svg.js": "^3.2.5",
+        "@types/reveal.js": "^5.2.2",
+        "reveal.js": "^5.2.1"
     },
     "devDependencies": {
         "@jupyterlab/builder": "^4.0.0",
