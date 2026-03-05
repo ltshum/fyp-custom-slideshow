@@ -120,17 +120,28 @@ const initAnimate = function (Reveal) {
     if (setup) {
       for (var i = 0; i < setup.length; i++) {
         try {
+          console.log(setup);
           if (setup[i].element) {
             // console.log(
             //   setup[i].element,
             //   setup[i].modifier,
             //   setup[i].parameters
             // );
-            var elements = animatedSVGs[index].svg.find(setup[i].element);
+            console.log(animatedSVGs[index]);
+            var formattedElement = setup[i].element.replaceAll('\\', '\\\\'); // backslashes for querySelector
+            if (formattedElement.includes('mj[')) {
+              formattedElement = formattedElement.replaceAll(
+                'mj[',
+                'g[data-latex='
+              );
+            }
+            var elements = animatedSVGs[index].svg.find(formattedElement);
+            console.log(formattedElement);
+            console.log(elements);
             if (!elements.length) {
               console.warn(
                 'Cannot find element to set up with selector: ' +
-                  setup[i].element +
+                  formattedElement +
                   '!'
               );
             }

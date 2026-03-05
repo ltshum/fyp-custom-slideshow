@@ -5,6 +5,7 @@ import { PLUGIN_ID, SlideType, Transition } from './constants';
 import { Cell, Slide, Subslide, Fragment } from './slideType';
 import Reveal from 'reveal.js';
 import '../node_modules/reveal.js/dist/reveal.css';
+import { MathJax4 } from './mathjax4.js';
 import '@svgdotjs/svg.js';
 
 // avoid implicit any error
@@ -26,17 +27,12 @@ const plugin = (
   let panel: NotebookPanel;
   let windowedPanel: HTMLElement;
   let windowingMode: 'defer' | 'full' | 'none';
+  let csSettings: any = {};
 
   let slideToggle = false;
   let layout: any[] = [];
   let slides: any[] = [];
-  let pageIndex = 0;
-  let prevIndex = pageIndex;
-  let cellIndicies: any = {};
-  let activeIndex = 0;
-  let navPrevActive = activeIndex;
 
-  const isReveal = true;
   let reveal: Reveal.Api | null = null;
   // Animate plugin by Asvin Goel (https://github.com/rajgoel/reveal.js-plugins)
   // does not work when imported at the top
@@ -46,18 +42,20 @@ const plugin = (
   // settings
   const loadSettings = (setting: any) => {
     return {
-      dummy: setting.get('dummy').composite as boolean
+      dummy: setting.get('dummy').composite as boolean,
+      default_transition: setting.get('default_transition')
+        .composite as Transition
     };
   };
 
   Promise.all([app.restored, settings.load(PLUGIN_ID)]).then(
     ([, settingRes]) => {
-      let setting = loadSettings(settingRes);
+      csSettings = loadSettings(settingRes);
       // update settings
       settingRes.changed.connect(() => {
         console.log('custom-slideshow settings updated:');
-        setting = loadSettings(settingRes);
-        console.log(setting);
+        csSettings = loadSettings(settingRes);
+        console.log(csSettings);
       });
 
       // main menu commands
@@ -66,11 +64,7 @@ const plugin = (
         isEnabled: () => !slideToggle,
         execute: async () => {
           try {
-            if (isReveal) {
-              initReveal();
-            } else {
-              initSlideshow();
-            }
+            initReveal();
           } catch (e) {
             console.error('Error starting slideshow:');
             console.error(e);
@@ -79,11 +73,11 @@ const plugin = (
       });
 
       commands.addCommand('slideshow:start-current', {
-        label: 'Start from current cell (not working)',
+        label: 'Start from current cell',
         isEnabled: () => !slideToggle,
         execute: () => {
           try {
-            initSlideshow('current');
+            initReveal('current');
           } catch (e) {
             console.error('Error starting slideshow:');
             console.error(e);
@@ -97,13 +91,9 @@ const plugin = (
         isEnabled: () => slideToggle,
         execute: () => {
           try {
-            if (isReveal) {
-              exitReveal();
-            } else {
-              exitSlideshow();
-            }
+            exitReveal();
           } catch (e) {
-            console.error('Error exiting slideshow:');
+            console.error('Error exiting slideshow: ');
             console.error(e);
           }
         }
@@ -111,48 +101,70 @@ const plugin = (
     }
   );
 
-  const initSlideshow = (mode: 'first' | 'current' = 'first') => {
+  const initReveal = (mode: 'first' | 'current' = 'first') => {
     slideToggle = true;
     layout = [];
     slides = [];
-    pageIndex = 0;
-    prevIndex = pageIndex;
-    cellIndicies = {};
-    activeIndex = 0;
 
     if (tracker.currentWidget) {
       panel = tracker.currentWidget;
       panel.context.ready.then(async () => {
         miscStyles(panel);
-        panel.content.activeCellChanged.connect(activeListener);
-        await getCells(panel).then(cells => {
+        await getCells(panel).then(async cells => {
           cells.forEach((cell, index) => {
             const slideType = cell.model.metadata.slideshow?.slide_type;
             const transition = cell.model.metadata.slideshow?.transition;
-
+            const transitionOut = cell.model.metadata.slideshow?.transition_out;
+            const transitionDuration =
+              cell.model.metadata.slideshow?.transition_duration ?? 0.5;
             switch (slideType) {
               case SlideType.SLIDE: {
-                cellIndicies[index] = true;
-                layout.push(new Slide(index, cell, transition));
+                layout.push(
+                  new Slide(
+                    index,
+                    cell,
+                    transition,
+                    transitionOut,
+                    transitionDuration
+                  )
+                );
                 break;
               }
               case SlideType.SUBSLIDE: {
-                cellIndicies[index] = true;
                 layout.push(
                   layout.length === 0
-                    ? new Slide(index, cell, transition)
-                    : new Subslide(index, cell, transition)
+                    ? new Slide(
+                        index,
+                        cell,
+                        transition,
+                        transitionOut,
+                        transitionDuration
+                      )
+                    : new Subslide(
+                        index,
+                        cell,
+                        transition,
+                        transitionOut,
+                        transitionDuration
+                      )
                 );
                 break;
               }
               case SlideType.FRAGMENT: {
-                cellIndicies[index] = true;
                 if (layout.length === 0) {
-                  layout.push(new Slide(index, cell, transition));
+                  layout.push(
+                    new Slide(
+                      index,
+                      cell,
+                      transition,
+                      transitionOut,
+                      transitionDuration
+                    )
+                  );
                 } else {
                   // add to last slide
                   layout[layout.length - 1].fragments.push(
-                    new Fragment(index, cell, transition)
+                    new Fragment(index, cell, transition, transitionDuration)
                   );
                 }
                 break;
@@ -163,165 +175,15 @@ const plugin = (
               // no slide type
               default: {
                 if (layout.length === 0) {
-                  layout.push(new Slide(index, cell, transition));
-                } else {
-                  const lastSlide = layout[layout.length - 1];
-                  // add to last fragment
-                  if (lastSlide.fragments.length > 0) {
-                    lastSlide.fragments[
-                      lastSlide.fragments.length - 1
-                    ].children.push(new Cell(index, cell));
-                  } else {
-                    lastSlide.children.push(new Cell(index, cell));
-                  }
-                }
-                break;
-              }
-            }
-          });
-        });
-
-        if (mode === 'first') {
-          // start from first cell
-          pageIndex = 0;
-          prevIndex = pageIndex;
-          activeIndex = layout[pageIndex].index;
-        } else {
-          // start from current cell
-          activeIndex = panel.content.activeCellIndex;
-          pageIndex = layout.findIndex(
-            item =>
-              item.index === activeIndex ||
-              item.fragments?.some(
-                (fragment: any) => fragment.index === activeIndex
-              )
-          );
-          if (pageIndex === -1) {
-            // activeIndex not in layout
-            // find slide before activeIndex
-            pageIndex = layout.findIndex(
-              item =>
-                item.index > activeIndex ||
-                item.fragments?.some(
-                  (fragment: any) => fragment.index > activeIndex
-                )
-            );
-            if (pageIndex > 0 && layout[pageIndex].index > activeIndex) {
-              pageIndex--;
-            }
-            if (pageIndex < 0) {
-              pageIndex = 0;
-            }
-            // find if activeIndex is child of a fragment
-            const activeFrag = layout[pageIndex].fragments?.find(
-              (fragment: any) => {
-                return fragment.children.some(
-                  (child: any) => child.index === activeIndex
-                );
-              }
-            );
-            if (activeFrag) {
-              activeIndex = activeFrag.index;
-            } else {
-              activeIndex = layout[pageIndex].index;
-            }
-            navPrevActive = activeIndex;
-            panel.content.activeCellIndex = activeIndex;
-          }
-          prevIndex = pageIndex;
-        }
-        initSlides(panel);
-        initLayout(pageIndex);
-
-        app.commands.commandExecuted.connect(navListener);
-        document.addEventListener('keydown', slideNav);
-        document.addEventListener('fullscreenchange', exitEvent);
-        await panel.content.node.requestFullscreen();
-      });
-    }
-  };
-
-  const exitEvent = () => {
-    if (!document.fullscreenElement) {
-      exitSlideshow();
-    }
-  };
-
-  const activeListener = (args: any) => {
-    activeIndex = panel.content.activeCellIndex;
-  };
-
-  const navListener = (sender: any, command: any) => {
-    // console.log(sender, command);
-    // avoid overlap with normal navigation
-    // note: command is fired after plugin listener
-    if (
-      command.id === 'notebook:move-cursor-up' ||
-      command.id === 'notebook:move-cursor-down'
-    ) {
-      panel.content.activeCellIndex = navPrevActive;
-    }
-    // activate next cell when shift+enter
-    else if (command.id === 'notebook:run-cell-and-select-next') {
-      slideNav(new KeyboardEvent('keydown', { key: ' ' }));
-    }
-  };
-
-  const addToSlide = (item: any, slide: any) => {
-    item.cell.node.classList.add(`cell${item.index}`);
-    if (
-      item.cell.model.type === 'code' &&
-      item.cell.model.metadata.slideshow?.hide_code
-    ) {
-      item.cell.node.classList.add('hide-code');
-    }
-    slide.appendChild(item.cell.node);
-  };
-
-  const initReveal = () => {
-    slideToggle = true;
-    layout = [];
-    slides = [];
-
-    if (tracker.currentWidget) {
-      panel = tracker.currentWidget;
-      panel.context.ready.then(async () => {
-        miscStyles(panel);
-        await getCells(panel).then(cells => {
-          cells.forEach((cell, index) => {
-            const slideType = cell.model.metadata.slideshow?.slide_type;
-            const transition = cell.model.metadata.slideshow?.transition;
-            switch (slideType) {
-              case SlideType.SLIDE: {
-                layout.push(new Slide(index, cell, transition));
-                break;
-              }
-              case SlideType.SUBSLIDE: {
-                layout.push(
-                  layout.length === 0
-                    ? new Slide(index, cell, transition)
-                    : new Subslide(index, cell, transition)
-                );
-                break;
-              }
-              case SlideType.FRAGMENT: {
-                if (layout.length === 0) {
-                  layout.push(new Slide(index, cell, transition));
-                } else {
-                  // add to last slide
-                  layout[layout.length - 1].fragments.push(
-                    new Fragment(index, cell, transition)
+                  layout.push(
+                    new Slide(
+                      index,
+                      cell,
+                      transition,
+                      transitionOut,
+                      transitionDuration
+                    )
                   );
-                }
-                break;
-              }
-              case SlideType.SKIP: {
-                break;
-              }
-              // no slide type
-              default: {
-                if (layout.length === 0) {
-                  layout.push(new Slide(index, cell, transition));
                 } else {
                   const lastSlide = layout[layout.length - 1];
                   // add to last fragment
@@ -341,12 +203,14 @@ const plugin = (
           for (let i = 0; i < layout.length; i++) {
             if (layout[i] instanceof Slide) {
               const slideOuter = document.createElement('section');
-              if (layout[i].cell.model.metadata.slideshow?.transition) {
-                slideOuter.setAttribute(
-                  'data-transition',
-                  layout[i].cell.model.metadata.slideshow.transition
-                );
+              if (layout[i].transition) {
+                let transition = layout[i].transition;
+                if (layout[i].transitionOut) {
+                  transition += `-in ${layout[i].transitionOut}-out`;
+                }
+                slideOuter.setAttribute('data-transition', transition);
               }
+              slideOuter.style.transitionDuration = `${layout[i].transitionDuration}s`;
               const slideInner = document.createElement('section');
               slideOuter.appendChild(slideInner);
               addToRevealSlide(slideInner, layout[i]);
@@ -357,20 +221,6 @@ const plugin = (
               slides[slides.length - 1].appendChild(subslide);
             }
           }
-          // layout.forEach((slide, index) => {
-          //   slides[index].classList.add('slides');
-
-          //   addToSlide(slide, slides[index]);
-          //   slide.children?.forEach((child: any) => {
-          //     addToSlide(child, slides[index]);
-          //   });
-          //   slide.fragments?.forEach((fragment: any) => {
-          //     addToSlide(fragment, slides[index]);
-          //     fragment.children?.forEach((child: any) => {
-          //       addToSlide(child, slides[index]);
-          //     });
-          //   });
-          // });
 
           const revealContainer = document.createElement('div');
           revealContainer.className = 'reveal';
@@ -384,16 +234,75 @@ const plugin = (
             revealContainer,
             panel.content.node.firstChild
           );
-
           reveal = new Reveal(revealContainer, {
             // @ts-expect-error: required for Animate plugin to work
             animate: {
               autoplay: true
             },
-            plugins: [window.RevealAnimate, window.RevealLoadContent],
-            transition: 'none'
+            plugins: [MathJax4, window.RevealLoadContent, window.RevealAnimate],
+            transition: csSettings.default_transition || 'slide'
           });
-          reveal!.initialize();
+          await reveal.initialize().then(() => {
+            if (reveal !== null) {
+              if (mode === 'first') {
+                reveal.slide(0, 0);
+              } else if (mode === 'current') {
+                let activeIndex = panel.content.activeCellIndex || 0;
+
+                while (
+                  ![
+                    SlideType.SLIDE,
+                    SlideType.SUBSLIDE,
+                    SlideType.FRAGMENT
+                  ].includes(
+                    cells[activeIndex].model.metadata.slideshow?.slide_type
+                  ) &&
+                  activeIndex > 0
+                ) {
+                  activeIndex--;
+                }
+                const activeCell = cells[activeIndex];
+                const slides = reveal.getHorizontalSlides();
+                let cellFound = false;
+                // find horizontal slide index
+                for (let i = 0; i < slides.length; i++) {
+                  if (cellFound) {
+                    break;
+                  }
+                  // find vertical slide index
+                  for (let j = 0; j < slides[i].children.length; j++) {
+                    if (
+                      slides[i].children[j].innerHTML.includes(
+                        activeCell.node.innerHTML
+                      )
+                    ) {
+                      // find fragment index
+                      let fragment = undefined;
+                      if (slides[i].children[j].children.length > 1) {
+                        for (
+                          let k = 0;
+                          k < slides[i].children[j].children.length;
+                          k++
+                        ) {
+                          if (
+                            slides[i].children[j].children[
+                              k
+                            ].innerHTML.includes(activeCell.node.innerHTML)
+                          ) {
+                            fragment = k - 1;
+                            break;
+                          }
+                        }
+                      }
+                      reveal.slide(i, j, fragment);
+                      cellFound = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          });
           // console.log(`Reveal.js plugins: ${reveal.getPlugins()}`);
         });
         document.addEventListener('fullscreenchange', exitRevealEvent);
@@ -415,19 +324,43 @@ const plugin = (
     ) {
       item.cell.node.classList.add('hide-code');
     }
-    if (item.cell.model.metadata.slideshow?.transition) {
-      slide.setAttribute(
-        'data-transition',
-        item.cell.model.metadata.slideshow.transition
-      );
+    if (item.transition) {
+      let transition = item.transition;
+      if (item.transitionOut) {
+        transition += `-in ${item.transitionOut}-out`;
+      }
+      slide.setAttribute('data-transition', transition);
     }
-    slide.appendChild(item.cell.node);
+    slide.style.transitionDuration = `${item.transitionDuration}s`;
+    const container = document.createElement('div');
+    // cannot use "container.appendChild(item.cell.node)", which converts all multi-backslashes into single backslashes
+    container.appendChild(item.cell.node);
+
     item.children?.forEach((child: any) => {
-      addToRevealSlide(slide, child);
+      addToRevealSlide(container, child);
     });
+    slide.appendChild(container);
     item.fragments?.forEach((fragment: any) => {
       const fragContainer = document.createElement('div');
       fragContainer.classList.add('fragment');
+      switch (fragment.transition) {
+        case Transition.SLIDE: {
+          fragContainer.classList.add(
+            fragment.cell.model.metadata.slideshow?.slide_dir === 'vertical'
+              ? 'fade-up'
+              : 'fade-left'
+          );
+          break;
+        }
+        case Transition.ZOOM: {
+          fragContainer.classList.add('zoom');
+          break;
+        }
+        case Transition.NONE: {
+          fragContainer.classList.add('none');
+          break;
+        }
+      }
       addToRevealSlide(fragContainer, fragment);
       slide.appendChild(fragContainer);
     });
@@ -442,33 +375,6 @@ const plugin = (
     more children
   </(sub)slide>
   */
-  const initSlides = (panel: NotebookPanel) => {
-    for (let i = 0; i < layout.length; i++) {
-      slides.push(document.createElement('div'));
-    }
-    layout.forEach((slide, index) => {
-      slides[index].classList.add(SlideType.SLIDE);
-
-      addToSlide(slide, slides[index]);
-      slide.children?.forEach((child: any) => {
-        addToSlide(child, slides[index]);
-      });
-      slide.fragments?.forEach((fragment: any) => {
-        addToSlide(fragment, slides[index]);
-        fragment.children?.forEach((child: any) => {
-          addToSlide(child, slides[index]);
-        });
-      });
-    });
-
-    for (let i = slides.length - 1; i >= 0; i--) {
-      panel.content.node.insertBefore(slides[i], panel.content.node.firstChild);
-    }
-
-    layout.forEach(slide => {
-      customStyle(slide);
-    });
-  };
 
   // cell styles
   const customStyle = (item: any, add: boolean = true) => {
@@ -502,173 +408,12 @@ const plugin = (
     });
   };
 
-  const slideNav = (event: KeyboardEvent) => {
-    const navKeyList = [
-      ' ',
-      'ArrowRight',
-      'ArrowLeft',
-      'ArrowDown',
-      'ArrowUp',
-      'Escape'
-    ];
-    /* 
-    space: every active cell
-    left/right: prev/next slide
-    up/down: prev/next subslide
-    esc: exit
-    */
-    if (!navKeyList.includes(event.key)) {
-      return;
-    }
-    // editing cells
-    if (
-      document.querySelectorAll('.slide-container.jp-mod-editMode').length > 0
-    ) {
-      return;
-    }
-
-    prevIndex = pageIndex;
-
-    // navigate fragments first
-    const fragments = layout[pageIndex].fragments;
-    const hiddenFragments = fragments.filter((item: any) =>
-      item.cell.node.classList.contains(SlideType.HIDDEN)
-    );
-    const visibleFragments = fragments.filter((item: any) =>
-      item.cell.node.classList.contains(SlideType.VISIBLE)
-    );
-    const iterFragments = visibleFragments.filter(
-      (item: any) => item.index > activeIndex
-    );
-    if (
-      (event.key === ' ' ||
-        event.key === 'ArrowRight' ||
-        event.key === 'ArrowDown') &&
-      (hiddenFragments.length > 0 || iterFragments.length > 0)
-    ) {
-      if (iterFragments.length > 0) {
-        updateStyle(iterFragments[0], true, true);
-        return;
-      }
-      if (hiddenFragments.length > 0) {
-        updateStyle(
-          hiddenFragments[0],
-          true,
-          true,
-          true,
-          hiddenFragments[0].transition,
-          hiddenFragments[0].cell.model.metadata.slideshow?.transition_duration,
-          hiddenFragments[0].cell.model.metadata.slideshow?.slide_dir
-        );
-        return;
-      }
-    }
-    if (
-      (event.key === 'ArrowUp' || event.key === 'ArrowLeft') &&
-      visibleFragments.length > 0
-    ) {
-      updateStyle(
-        visibleFragments[visibleFragments.length - 1],
-        false,
-        true,
-        false,
-        visibleFragments[visibleFragments.length - 1].transition,
-        visibleFragments[visibleFragments.length - 1].cell.model.metadata
-          .slideshow?.transition_duration,
-        visibleFragments[visibleFragments.length - 1].cell.model.metadata
-          .slideshow?.slide_dir
-      );
-      return;
-    }
-
-    if (event.key === ' ') {
-      if (pageIndex < layout.length - 1) {
-        pageIndex++;
-        updateLayout();
-      }
-    }
-    if (event.key === 'ArrowRight') {
-      if (pageIndex < layout.length - 1) {
-        do {
-          pageIndex++;
-        } while (
-          pageIndex < layout.length - 1 &&
-          layout[pageIndex] instanceof Subslide
-        );
-        // stay on last slide
-        if (
-          pageIndex === layout.length - 1 &&
-          layout[pageIndex] instanceof Subslide
-        ) {
-          pageIndex = prevIndex;
-        }
-        const nextHiddenFragments = layout[pageIndex].fragments.filter(
-          (item: any) => item.cell.node.classList.contains(SlideType.HIDDEN)
-        );
-        if (nextHiddenFragments.length > 0) {
-          nextHiddenFragments.forEach((fragment: any) => {
-            updateStyle(fragment, false, true);
-          });
-        }
-        updateLayout();
-      }
-    } else if (event.key === 'ArrowLeft') {
-      if (pageIndex > 0) {
-        do {
-          pageIndex--;
-        } while (pageIndex > 0 && layout[pageIndex] instanceof Subslide);
-        updateLayout(false);
-      }
-    } else if (event.key === 'ArrowDown') {
-      if (
-        pageIndex < layout.length - 1 &&
-        layout[pageIndex + 1] instanceof Subslide
-      ) {
-        pageIndex++;
-        const nextHiddenFragments = layout[pageIndex].fragments.filter(
-          (item: any) => item.cell.node.classList.contains(SlideType.HIDDEN)
-        );
-        if (nextHiddenFragments.length > 0) {
-          nextHiddenFragments.forEach((fragment: any) => {
-            updateStyle(fragment, false, true);
-          });
-        }
-        updateLayout();
-      }
-    } else if (event.key === 'ArrowUp') {
-      if (pageIndex > 0 && !(layout[pageIndex] instanceof Slide)) {
-        pageIndex--;
-        updateLayout(false);
-      }
-    } else if (event.key === 'Escape') {
-      exitSlideshow();
-      return;
-    }
-    // console.log('Indices:');
-    // console.log(cellIndicies);
-    // console.log(activeIndex);
-    // console.log('Page index:');
-    // console.log(pageIndex);
-  };
-
   const exitReveal = () => {
     slideToggle = false;
     clearAll(panel);
     document.removeEventListener('fullscreenchange', exitRevealEvent);
     panel.content.node.removeChild(panel.content.node.firstChild!);
     reveal?.destroy();
-  };
-
-  const exitSlideshow = async () => {
-    slideToggle = false;
-    panel.content.activeCellChanged.disconnect(activeListener);
-    clearAll(panel);
-    slides.forEach(slide => {
-      panel.content.node.removeChild(slide);
-    });
-    app.commands.commandExecuted.disconnect(navListener);
-    document.removeEventListener('keydown', slideNav);
-    document.removeEventListener('fullscreenchange', exitEvent);
   };
 
   // clean up notebook layout for slideshow
@@ -742,262 +487,11 @@ const plugin = (
     return cells;
   };
 
-  const initLayout = (index: number = 0) => {
-    // TODO: refactor style-related functions so that activeIndex doesn't change here
-    const active = activeIndex;
-    for (let i = 0; i < layout.length; i++) {
-      clearStyles(slides[i], false);
-      layout[i].fragments?.forEach((fragment: any) => {
-        updateStyle(fragment, false, true);
-      });
-      updateStyle(layout[i], i === index);
-    }
-    // activate every fragment in current page before activeIndex
-    layout[index].fragments
-      ?.filter((fragment: any) => fragment.index <= active)
-      .forEach((fragment: any) => {
-        updateStyle(fragment, true, true);
-      });
-    slides[index].classList.add('focused');
-  };
-
-  const updateLayout = (forward: boolean = true) => {
-    // console.log(`prevIndex: ${prevIndex}, pageIndex: ${pageIndex}`);
-    if (pageIndex !== prevIndex) {
-      // reset view from possible overflow on prev page
-      slides[pageIndex].scrollIntoView();
-      clearStyles(slides[prevIndex], false);
-      clearStyles(slides[pageIndex], false);
-      slides[prevIndex].classList.remove('focused');
-      slides[pageIndex].classList.add('focused');
-      if (forward) {
-        updateStyle(
-          layout[prevIndex],
-          false,
-          false,
-          forward,
-          layout[pageIndex].transition,
-          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
-          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[pageIndex] instanceof Subslide
-        );
-        updateStyle(
-          layout[pageIndex],
-          true,
-          false,
-          forward,
-          layout[pageIndex].transition,
-          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
-          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[pageIndex] instanceof Subslide
-        );
-      } else {
-        updateStyle(
-          layout[prevIndex],
-          false,
-          false,
-          forward,
-          layout[pageIndex].transition,
-          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
-          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[prevIndex] instanceof Subslide
-        );
-        updateStyle(
-          layout[pageIndex],
-          true,
-          false,
-          forward,
-          layout[pageIndex].transition,
-          layout[pageIndex].cell.model.metadata.slideshow?.transition_duration,
-          layout[pageIndex].cell.model.metadata.slideshow?.slide_dir,
-          layout[prevIndex] instanceof Subslide
-        );
-      }
-    }
-  };
-
-  const slideTrans = (
-    dir: 'in' | 'out',
-    forward: boolean = true,
-    axis: 'horizontal' | 'vertical' = 'horizontal'
-  ) => {
-    return forward
-      ? `${Transition.SLIDE}-${dir}-${axis === 'vertical' ? 'up' : 'left'}`
-      : `${Transition.SLIDE}-${dir}-${axis === 'vertical' ? 'down' : 'right'}`;
-  };
-
-  const updateStyle = async (
-    item: any,
-    add: boolean = true, // slide is visible
-    fragment: boolean = false, // to update a fragment separately
-    forward: boolean = true, // nav direction is forward (' ', 'ArrowRight', 'ArrowDown')
-    transition: string = '',
-    transition_duration: number = 1,
-    slideDir: undefined | 'horizontal' | 'vertical' = undefined,
-    isSubslide: boolean = false,
-    visible: boolean = true, // fragment is visible
-    active: boolean = true // cell has slide type and thus can be active
-  ) => {
-    clearStyles(item.cell.node, false);
-    if (add) {
-      if (fragment) {
-        item.cell.node.classList.add(SlideType.VISIBLE);
-        if (transition) {
-          if (transition === Transition.SLIDE) {
-            item.cell.node.classList.add(
-              slideTrans(
-                'in',
-                forward,
-                slideDir || (isSubslide ? 'vertical' : 'horizontal')
-              )
-            );
-          } else {
-            item.cell.node.classList.add(`${transition}-in`);
-          }
-          if (transition_duration !== undefined) {
-            item.cell.node.style.animationDuration = `${transition_duration}s`;
-          }
-        }
-        item.children?.forEach((child: any) => {
-          updateStyle(
-            child,
-            add,
-            fragment,
-            forward,
-            transition,
-            transition_duration,
-            slideDir,
-            isSubslide,
-            visible,
-            false
-          );
-        });
-      } else {
-        if (transition) {
-          const page = layout.findIndex(slide => slide.index === item.index);
-          if (page !== -1) {
-            if (transition === Transition.SLIDE) {
-              slides[page].classList.add(
-                slideTrans(
-                  'in',
-                  forward,
-                  slideDir || (isSubslide ? 'vertical' : 'horizontal')
-                )
-              );
-            } else {
-              slides[page].classList.add(`${transition}-in`);
-            }
-            if (transition_duration !== undefined) {
-              slides[page].style.animationDuration = `${transition_duration}s`;
-            }
-          }
-        }
-      }
-      const tempActive = activeIndex;
-      activeIndex = item.index;
-      navPrevActive = activeIndex;
-      panel.content.activeCellIndex = activeIndex;
-      item.fragments?.forEach((frag: any) => {
-        updateStyle(
-          frag,
-          frag.index <= tempActive,
-          true,
-          false,
-          '',
-          undefined,
-          undefined,
-          false,
-          frag.index <= tempActive,
-          frag.index <= tempActive
-        );
-      });
-    } else {
-      if (fragment) {
-        if (visible && transition) {
-          if (transition === Transition.SLIDE) {
-            item.cell.node.classList.add(
-              slideTrans(
-                'out',
-                forward,
-                slideDir || (isSubslide ? 'vertical' : 'horizontal')
-              )
-            );
-          } else {
-            item.cell.node.classList.add(`${transition}-out`);
-          }
-          if (transition_duration !== undefined) {
-            item.cell.node.style.animationDuration = `${transition_duration}s`;
-          }
-        }
-        item.cell.node.classList.remove(SlideType.VISIBLE);
-        item.cell.node.classList.add(SlideType.HIDDEN);
-        item.children?.forEach((child: any) => {
-          updateStyle(
-            child,
-            add,
-            fragment,
-            forward,
-            transition,
-            transition_duration,
-            slideDir,
-            isSubslide,
-            visible,
-            false
-          );
-        });
-      } else {
-        const page = layout.findIndex(slide => slide.index === item.index);
-        if (transition) {
-          if (transition === Transition.SLIDE) {
-            slides[page]?.classList.add(
-              slideTrans(
-                'out',
-                forward,
-                slideDir || (isSubslide ? 'vertical' : 'horizontal')
-              )
-            );
-          } else {
-            slides[page]?.classList.add(`${transition}-out`);
-          }
-          if (transition_duration !== undefined) {
-            slides[page].style.animationDuration = `${transition_duration}s`;
-          }
-        }
-        slides[page]?.classList.add(SlideType.HIDDEN);
-      }
-      if (!forward && active) {
-        do {
-          activeIndex--;
-        } while (activeIndex > 0 && !cellIndicies[activeIndex]);
-        if (!cellIndicies[activeIndex]) {
-          activeIndex = layout[0].index;
-        }
-        navPrevActive = activeIndex;
-        panel.content.activeCellIndex = activeIndex;
-      }
-      const tempActive = activeIndex;
-      item.fragments?.forEach((frag: any) => {
-        updateStyle(
-          frag,
-          frag.index <= tempActive,
-          frag.index > tempActive,
-          false,
-          '',
-          undefined,
-          undefined,
-          false,
-          frag.index <= tempActive,
-          frag.index <= tempActive
-        );
-      });
-    }
-  };
-
   const clearStyles = (node: any, slideType: boolean = true) => {
     if (slideType) {
       node.classList.remove(...Object.values(SlideType));
     }
-    node.style.removeProperty('animation-duration');
+    node.style.removeProperty('transition-duration');
     node.classList.remove(SlideType.HIDDEN);
     ['in', 'out'].forEach(dir => {
       node.classList.remove(

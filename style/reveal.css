@@ -7,11 +7,15 @@
   display: none;
 }
 
-/* 
-.reveal .fragment {
-    opacity: 0;
-    transition: none !important;
+.reveal .fragment.zoom {
+  opacity: 0;
+  transform: scale(0);
 }
-.reveal .fragment.visible {
-    opacity: 1;
-} */
+.reveal .fragment.zoom.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.reveal .fragment.none {
+  transition: none;
+}

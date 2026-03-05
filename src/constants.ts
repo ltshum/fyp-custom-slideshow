@@ -11,6 +11,7 @@ enum SlideType {
 }
 
 enum Transition {
+  NONE = 'none',
   SLIDE = 'slide',
   FADE = 'fade',
   ZOOM = 'zoom'
