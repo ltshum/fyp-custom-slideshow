@@ -11,7 +11,9 @@ export const MathJax4 = () => {
       ]
     },
     options: {
-      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'code']
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'code'],
+      // prevents problem of erasing backslashes in cells
+      ignoreHtmlClass: 'jp-InputArea-editor'
     },
     svg: {
       fontCache: 'none',
@@ -50,7 +52,7 @@ export const MathJax4 = () => {
     init: function (reveal) {
       deck = reveal;
 
-      let revealOptions = deck.getConfig().mathjax4 || {};
+      let revealOptions = deck.getConfig().mathjax3 || {};
       let options = { ...defaultOptions, ...revealOptions };
       options.tex = { ...defaultOptions.tex, ...revealOptions.tex };
       options.options = { ...defaultOptions.options, ...revealOptions.options };

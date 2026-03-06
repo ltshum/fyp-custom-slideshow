@@ -245,7 +245,7 @@ const plugin = (
           await reveal.initialize().then(() => {
             if (reveal !== null) {
               if (mode === 'first') {
-                reveal.slide(0, 0);
+                reveal.slide(0);
               } else if (mode === 'current') {
                 let activeIndex = panel.content.activeCellIndex || 0;
 
@@ -333,7 +333,6 @@ const plugin = (
     }
     slide.style.transitionDuration = `${item.transitionDuration}s`;
     const container = document.createElement('div');
-    // cannot use "container.appendChild(item.cell.node)", which converts all multi-backslashes into single backslashes
     container.appendChild(item.cell.node);
 
     item.children?.forEach((child: any) => {

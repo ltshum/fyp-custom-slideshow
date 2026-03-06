@@ -11,6 +11,7 @@
   opacity: 0;
   transform: scale(0);
 }
+
 .reveal .fragment.zoom.visible {
   opacity: 1;
   transform: scale(1);
