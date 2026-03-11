@@ -112,7 +112,6 @@ const initAnimate = function (Reveal) {
     animatedSVGs.push({
       svg: [...container.querySelectorAll('svg')].map(svg => SVG(svg))
     });
-    console.log(animatedSVGs);
     // console.log(animatedSVGs);
     if (!config) return;
 
@@ -120,8 +119,6 @@ const initAnimate = function (Reveal) {
     // pre-animation setup
     var setup = config.setup;
     // console.log(animatedSVGs[index].svg, setup);
-    console.log('Setup:');
-    console.log(setup);
     if (setup) {
       for (var i = 0; i < setup.length; i++) {
         try {
@@ -141,9 +138,6 @@ const initAnimate = function (Reveal) {
             var elements = animatedSVGs[index].svg.map(svg =>
               svg.find(formattedElement)
             );
-            console.log(`Finding ${formattedElement}:`);
-            console.log(animatedSVGs[index]);
-            console.log(elements);
             if (!elements.length) {
               console.warn(
                 'Cannot find element to set up with selector: ' +
