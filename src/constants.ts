@@ -1,4 +1,4 @@
-const PLUGIN_ID = 'custom-slideshow:plugin';
+const PLUGIN_ID = 'custom-slideshow';
 
 enum SlideType {
   SLIDE = 'slide',

@@ -109,7 +109,10 @@ const initAnimate = function (Reveal) {
   function setupAnimations(index, container, config) {
     // console.warn('setupAnimations', container, config);
     container.setAttribute('data-animation-index', index);
-    animatedSVGs.push({ svg: SVG(container.querySelector('svg')) });
+    animatedSVGs.push({
+      svg: [...container.querySelectorAll('svg')].map(svg => SVG(svg))
+    });
+    console.log(animatedSVGs);
     // console.log(animatedSVGs);
     if (!config) return;
 
@@ -117,6 +120,8 @@ const initAnimate = function (Reveal) {
     // pre-animation setup
     var setup = config.setup;
     // console.log(animatedSVGs[index].svg, setup);
+    console.log('Setup:');
+    console.log(setup);
     if (setup) {
       for (var i = 0; i < setup.length; i++) {
         try {
@@ -133,7 +138,12 @@ const initAnimate = function (Reveal) {
                 'g[data-latex='
               );
             }
-            var elements = animatedSVGs[index].svg.find(formattedElement);
+            var elements = animatedSVGs[index].svg.map(svg =>
+              svg.find(formattedElement)
+            );
+            console.log(`Finding ${formattedElement}:`);
+            console.log(animatedSVGs[index]);
+            console.log(elements);
             if (!elements.length) {
               console.warn(
                 'Cannot find element to set up with selector: ' +
@@ -158,16 +168,14 @@ const initAnimate = function (Reveal) {
             // no element is provided
             if (typeof setup[i].modifier === 'function') {
               // if modifier is function execute it
-              setup[i].modifier.apply(
-                animatedSVGs[index].svg,
-                setup[i].parameters
-              );
+              animatedSVGs[index].svg.forEach(svg => {
+                setup[i].modifier.apply(svg, setup[i].parameters);
+              });
             } else {
               // apply modifier to root
-              animatedSVGs[index].svg[setup[i].modifier].apply(
-                animatedSVGs[index].svg,
-                setup[i].parameters
-              );
+              animatedSVGs[index].svg.forEach(svg => {
+                svg[setup[i].modifier].apply(svg, setup[i].parameters);
+              });
             }
           }
         } catch (error) {
@@ -196,8 +204,8 @@ const initAnimate = function (Reveal) {
         for (var i = 0; i < animations[fragment].length; i++) {
           try {
             // add each animation step
-            var elements = animatedSVGs[index].svg.find(
-              animations[fragment][i].element
+            var elements = animatedSVGs[index].svg.map(svg =>
+              svg.find(animations[fragment][i].element)
             );
             // console.log(
             //   'element(' +

@@ -20,7 +20,8 @@
     "strictNullChecks": true,
     "target": "ES2018",
     "types": ["jest"],
-    "allowJs": true
+    "allowJs": true,
+    "skipLibCheck": true
   },
-  "include": ["src/*", "src/rajgoel/animate.js", "src/rajgoel/loadcontent.js"]
+  "include": ["src"]
 }

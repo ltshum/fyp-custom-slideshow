@@ -5,7 +5,6 @@ import { PLUGIN_ID, SlideType, Transition } from './constants';
 import { Cell, Slide, Subslide, Fragment } from './slideType';
 import Reveal from 'reveal.js';
 import '../node_modules/reveal.js/dist/reveal.css';
-import { MathJax4 } from './mathjax4.js';
 import '@svgdotjs/svg.js';
 
 // avoid implicit any error
@@ -48,7 +47,7 @@ const plugin = (
     };
   };
 
-  Promise.all([app.restored, settings.load(PLUGIN_ID)]).then(
+  Promise.all([app.restored, settings.load(`${PLUGIN_ID}:plugin`)]).then(
     ([, settingRes]) => {
       csSettings = loadSettings(settingRes);
       // update settings
@@ -239,7 +238,7 @@ const plugin = (
             animate: {
               autoplay: true
             },
-            plugins: [MathJax4, window.RevealLoadContent, window.RevealAnimate],
+            plugins: [window.RevealLoadContent, window.RevealAnimate],
             transition: csSettings.default_transition || 'slide'
           });
           await reveal.initialize().then(() => {

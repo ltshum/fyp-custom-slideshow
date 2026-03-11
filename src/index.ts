@@ -4,14 +4,15 @@ import {
 } from '@jupyterlab/application';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-import pluginMain from './plugin';
 import { PLUGIN_ID } from './constants';
+import pluginMain from './plugin';
+import mjPlugin from './mathjax4/plugin';
 
 /**
  * Initialization data for the custom-slideshow extension.
  */
 const plugin: JupyterFrontEndPlugin<void> = {
-  id: PLUGIN_ID,
+  id: `${PLUGIN_ID}:plugin`,
   description: 'JupyterLab extension for animated slideshow.',
   autoStart: true,
   requires: [INotebookTracker, ISettingRegistry],
@@ -38,4 +39,4 @@ const plugin: JupyterFrontEndPlugin<void> = {
   }
 };
 
-export default plugin;
+export default [plugin, mjPlugin];
