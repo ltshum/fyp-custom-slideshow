@@ -208,6 +208,11 @@ const plugin = (
                   transition += `-in ${layout[i].transitionOut}-out`;
                 }
                 slideOuter.setAttribute('data-transition', transition);
+                if (layout[i].cell.model.metadata.slideshow?.slide_dir) {
+                  slideOuter.classList.add(
+                    layout[i].cell.model.metadata.slideshow.slide_dir
+                  );
+                }
               }
               slideOuter.style.transitionDuration = `${layout[i].transitionDuration}s`;
               const slideInner = document.createElement('section');
@@ -329,6 +334,9 @@ const plugin = (
         transition += `-in ${item.transitionOut}-out`;
       }
       slide.setAttribute('data-transition', transition);
+      if (item.cell.model.metadata.slideshow?.slide_dir) {
+        slide.classList.add(item.cell.model.metadata.slideshow.slide_dir);
+      }
     }
     slide.style.transitionDuration = `${item.transitionDuration}s`;
     const container = document.createElement('div');

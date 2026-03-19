@@ -7,6 +7,26 @@
   display: none;
 }
 
+.reveal .slides section[data-transition='slide'].horizontal.past,
+.reveal .slides section[data-transition~='slide-out'].horizontal.past {
+  transform: translate(-150%, 0);
+}
+
+.reveal .slides section[data-transition='slide'].horizontal.future,
+.reveal .slides section[data-transition~='slide-in'].horizontal.future {
+  transform: translate(150%, 0);
+}
+
+.reveal .slides section[data-transition='slide'].vertical.past,
+.reveal .slides section[data-transition~='slide-out'].vertical.past {
+  transform: translate(0, -150%);
+}
+
+.reveal .slides section[data-transition='slide'].vertical.future,
+.reveal .slides section[data-transition~='slide-in'].vertical.future {
+  transform: translate(0, 150%);
+}
+
 .reveal .fragment.zoom {
   opacity: 0;
   transform: scale(0);

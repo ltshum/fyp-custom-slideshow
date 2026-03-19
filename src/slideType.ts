@@ -11,7 +11,7 @@ class Cell {
 class Slide extends Cell {
   transition: string;
   transitionOut: string;
-  tansitionDuration: number;
+  transitionDuration: number;
   fragments: any[];
   children: any[];
 
@@ -25,7 +25,7 @@ class Slide extends Cell {
     super(index, cell);
     this.transition = transition;
     this.transitionOut = transitionOut;
-    this.tansitionDuration = transitionDuration;
+    this.transitionDuration = transitionDuration;
     this.fragments = [];
     this.children = [];
   }
@@ -34,7 +34,7 @@ class Slide extends Cell {
 class Subslide extends Cell {
   transition: string;
   transitionOut: string;
-  trnsitionDuration: number;
+  transitionDuration: number;
   fragments: any[];
   children: any[];
 
@@ -48,7 +48,7 @@ class Subslide extends Cell {
     super(index, cell);
     this.transition = transition;
     this.transitionOut = transitionOut;
-    this.trnsitionDuration = transitionDuration;
+    this.transitionDuration = transitionDuration;
     this.fragments = [];
     this.children = [];
   }

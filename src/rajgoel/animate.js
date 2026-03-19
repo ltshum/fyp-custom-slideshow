@@ -509,6 +509,15 @@ console.log('resumed ');
     animateSlide();
   });
 
+  // reset animation upon exiting slideshow
+  document.addEventListener('fullscreenchange', function (event) {
+    var elements = document.querySelectorAll('[data-animate]');
+    for (var i = 0; i < elements.length; i++) {
+      animatedSVGs[i].animation.time(0);
+      animatedSVGs[i].animation.stop();
+    }
+  });
+
   this.play = play;
   this.pause = pause;
   this.seek = seek;
