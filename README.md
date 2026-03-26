@@ -30,23 +30,23 @@ pip uninstall custom_slideshow
 
 The slideshow follows the Reveal.js framework. The slide type of a cell can be changed in `COMMON TOOLS > Slide Type`. Available slide types include **Slide**, **Sub-Slide**, **Fragment**, **Skip**.
 
-![Image](./Demo/common_tools.png)
+![Image](https://github.com/ltshum/fyp-custom-slideshow/tree/main/Demo/common_tools.png)
 
 The transition type and duration of a cell can be changed in `SLIDESHOW TOOLS`. Available transition types include **Slide**, **Fade**, **Zoom**. The default transition type can be changed in Settings. Transition-out type inherits the transition type by default.
 
 For transition type of **Slide**, the slide direction can be either **Horizontal** or **Vertical**. By default, Slides have horizontal transitions, and Sub-Slides have vertical transitions.
 
-![Image](./Demo/transition.png)
+![Image](https://github.com/ltshum/fyp-custom-slideshow/tree/main/Demo/transition.png)
 
 For code cells, the input of the cell can be hidden by checking `Hide Code Cell`, leaving only the output visible.
 
-![Image](./Demo/code_cell.png)
+![Image](https://github.com/ltshum/fyp-custom-slideshow/tree/main/Demo/code_cell.png)
 
 To start a slideshow, select `Slideshow` in the main menu and select either `Start from first cell` or `Start from current cell`. `Start from first cell` starts the slideshow from the beginning. `Start from current cell` starts the slideshow at the selected cell.
 
 To exit a slideshow, exit fullscreen. The `Exit slideshow` option is an alternative for when exiting fullscreen does not exit the slideshow successfully.
 
-![Image](./Demo/start_slideshow.png)
+![Image](https://github.com/ltshum/fyp-custom-slideshow/tree/main/Demo/start_slideshow.png)
 
 ### SVG Animation
 
@@ -54,17 +54,17 @@ The SVG animation feature uses the [Reveal.js Animate and LoadContent plugins by
 
 To add an SVG image for animating, add `%%markdown` at the start of a code cell, and create a `<div>` block with attribute `data-animate`. Either add the SVG data inside the block, or use the [`data-load` attribute from the LoadContent plugin](https://github.com/rajgoel/reveal.js-plugins/blob/master/loadcontent/README.md).
 
-![Image](./Demo/SVG.png)
+![Image](https://github.com/ltshum/fyp-custom-slideshow/tree/main/Demo/SVG.png)
 
 To animate the SVG image, add a comment block with a JSON string. The `setup` object controls the images after loading. The `animation` object controls the images on each fragment. To successfully set up the animation, the corresponding number of fragments must be added in the cell. More details can be viewed in the [README of the Animate plugin](https://github.com/rajgoel/reveal.js-plugins/blob/master/animate/README.md).
 
-![Image](./Demo/SVG_anim.png)
+![Image](https://github.com/ltshum/fyp-custom-slideshow/tree/main/Demo/SVG_anim.png)
 
 ### MathJax SVG
 
 MathJax 4 is installed to convert math expressions into SVG images, which can be used for animations. Components in the SVG image can be selected with selector `g[data-latex='x']`, which is simplified into `mj['x']`.
 
-![Image](./Demo/mathjax.png)
+![Image](https://github.com/ltshum/fyp-custom-slideshow/tree/main/Demo/mathjax.png)
 
 ## Contributing
 
