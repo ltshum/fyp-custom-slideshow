@@ -198,8 +198,15 @@ const initAnimate = function (Reveal) {
         for (var i = 0; i < animations[fragment].length; i++) {
           try {
             // add each animation step
+            var formattedElement = animations[fragment][i].element.replaceAll('\\', '\\\\'); // backslashes for querySelector
+            if (formattedElement.includes('mj[')) {
+              formattedElement = formattedElement.replaceAll(
+                'mj[',
+                'g[data-latex='
+              );
+            }
             var elements = animatedSVGs[index].svg.map(svg =>
-              svg.find(animations[fragment][i].element)
+              svg.find(formattedElement)
             );
             // console.log(
             //   'element(' +
@@ -213,7 +220,7 @@ const initAnimate = function (Reveal) {
             if (!elements.length) {
               console.warn(
                 'Cannot find element to animate with selector: ' +
-                  animations[fragment][i].element +
+                  formattedElement +
                   '!'
               );
             }
