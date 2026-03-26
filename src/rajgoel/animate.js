@@ -198,7 +198,10 @@ const initAnimate = function (Reveal) {
         for (var i = 0; i < animations[fragment].length; i++) {
           try {
             // add each animation step
-            var formattedElement = animations[fragment][i].element.replaceAll('\\', '\\\\'); // backslashes for querySelector
+            var formattedElement = animations[fragment][i].element.replaceAll(
+              '\\',
+              '\\\\'
+            ); // backslashes for querySelector
             if (formattedElement.includes('mj[')) {
               formattedElement = formattedElement.replaceAll(
                 'mj[',
