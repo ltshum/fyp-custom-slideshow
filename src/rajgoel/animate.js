@@ -189,6 +189,12 @@ const initAnimate = function (Reveal) {
 
     // setup animation
     var animations = config.animation;
+    // TODO: auto-shift animation for fragments in same slide
+    // should be implemented after auto-append fragments
+    // or any way to update the fragment index
+    // for (var i = 0; i < index; i++) {
+    //   animations.unshift([]);
+    // }
     if (animations) {
       animatedSVGs[index].animationSchedule.length = animations.length;
       var timestamp = 0;
@@ -261,11 +267,11 @@ const initAnimate = function (Reveal) {
       animatedSVGs[index].animation.stop();
     }
 
-    // setup current slide
-    if (Reveal.getCurrentSlide().contains(container)) {
-      Reveal.layout(); // Update layout to account for svg size
-      animateSlide(0);
-    }
+    // // setup current slide
+    // if (Reveal.getCurrentSlide().contains(container)) {
+    //   Reveal.layout(); // Update layout to account for svg size
+    //   animateSlide(0);
+    // }
   }
 
   function initialize() {
@@ -281,6 +287,8 @@ const initAnimate = function (Reveal) {
       var config = parseComments(elements[i]);
       setupAnimations(i, elements[i], config);
     }
+    Reveal.layout(); // Update layout to account for svg size
+    animateSlide(0);
   }
 
   function play() {
@@ -523,8 +531,12 @@ console.log('resumed ');
   document.addEventListener('fullscreenchange', function (event) {
     var elements = document.querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
-      animatedSVGs[i].animation.time(0);
-      animatedSVGs[i].animation.stop();
+      if (
+        animatedSVGs[i].animation &&
+        animatedSVGs[i].animationSchedule
+      ) {
+        animatedSVGs[i].animation.stop();
+      }
     }
   });
 
