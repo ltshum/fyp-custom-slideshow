@@ -531,10 +531,7 @@ console.log('resumed ');
   document.addEventListener('fullscreenchange', function (event) {
     var elements = document.querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
-      if (
-        animatedSVGs[i].animation &&
-        animatedSVGs[i].animationSchedule
-      ) {
+      if (animatedSVGs[i].animation && animatedSVGs[i].animationSchedule) {
         animatedSVGs[i].animation.stop();
       }
     }
