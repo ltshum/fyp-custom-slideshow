@@ -5,6 +5,7 @@ import { JupyterFrontEndPlugin } from '@jupyterlab/application';
 import { ILatexTypesetter } from '@jupyterlab/rendermime';
 import { mathjax } from '@mathjax/src/mjs/mathjax';
 import { TeX } from '@mathjax/src/mjs/input/tex';
+import '@mathjax/src/mjs/input/tex/html/HtmlConfiguration';
 // the cause of source map parsing warnings (https://github.com/webyonet/react-native-mathjax-html-to-svg/issues/15)
 import { SVG } from '@mathjax/src/mjs/output/svg';
 import { SafeHandler } from '@mathjax/src/mjs/ui/safe/SafeHandler';
@@ -26,6 +27,7 @@ export class MathJax4Typesetter implements ILatexTypesetter {
         ['$$', '$$'],
         ['\\[', '\\]']
       ],
+      packages: ['base', 'html'],
       processEscapes: true,
       processEnvironments: true
     });
