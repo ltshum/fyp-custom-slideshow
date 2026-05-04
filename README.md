@@ -4,6 +4,8 @@
 
 JupyterLab extension for animated slideshow.
 
+Demo: https://ltshum.github.io/jupyterlite/lab/index.html
+
 ## Requirements
 
 - JupyterLab >= 4.0.0
